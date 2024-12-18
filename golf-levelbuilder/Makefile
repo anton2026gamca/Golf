@@ -29,7 +29,7 @@ RAYLIB_VERSION     ?= 5.0.0
 RAYLIB_PATH        ?= C:/raylib/raylib
 
 INCLUDE             = -I../../lib
-COMPILE_ITEMS       = *.cpp ../../lib/*.cpp
+COMPILE_ITEMS       = *.cpp
 
 # Define compiler path on Windows
 COMPILER_PATH      ?= C:/raylib/w64devkit/bin
