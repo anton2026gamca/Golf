@@ -24,7 +24,7 @@ int screenHeight = 720;
 Color aim_rect_color = AIM_RECT_NORMAL_COLOR;
 float aim_distance = 0;
 
-#define BALL_BOUNCIENESS 1.1
+#define BALL_BOUNCIENESS 1.03
 #define BALL_FRICTION 1.03
 #define BALL_FORCE_MULTIPLYER 10
 
@@ -50,14 +50,20 @@ int shots_left = 0;
 
 int level_num = 1;
 unsigned __int8 highest_level = 0;
-const int levels_count = 5;
+const int levels_count = 12;
 const std::string levels_hash[levels_count] = {"a7bbf0cb64e0e768dd37ce423e1d54348f06d5081295c8d5ed4526ce1b8ae309",
                                                 "0e4dbca2921c7149816502c993a9d49d4973206b7266a6c4cae8512014035c6a",
                                                 "95608a2fa227361dcea10bffc0817ffece385ccf1bfe968822e56706b6509235",
-                                                "77c87cce1c070dc2d5e626d9803c72e9a649f93077789091d79587cd5cc3d850",
-                                                "8c37116116eb9e100a576b4fb4f5ddbc69868ed2deac7f212a34cc5154bc8dfb"};
+                                                "f197625df2ba1d8fe0662e7465702722942175d831a7bd1a0129e1c941796120",
+                                                "8c37116116eb9e100a576b4fb4f5ddbc69868ed2deac7f212a34cc5154bc8dfb",
+                                                "1a374054a84211bb57aaf7df0a4048f5804aaf638924b23eabac6bfcfb563cae",
+                                                "a277054d348ceaa660b03dd77742495528f0bac23c0a0c147d0c74d6a6fa53c0",
+                                                "744e22a6eb803c16e3987eb9381fffb0a9f372031197ee2159811b4d0c250e11",
+                                                "937eb651e51a1270ee0465310a63a11ba059a2e19acb65cd9bf90ff1d1644bac",
+                                                "684b6b42f9b14143fca3cf32a644cd086ca6b7558e84773dcd23d2c7b4e9aeda",
+                                                "6c593044ca41307bae33c19cff483fbe8224a20b2585c2e8b2e5ee3e0e488a75",
+                                                "0ac0830a480c1b6048f2d715608777da628e53334b0ee4754edc1bc55a0e9e3f"};
 int lvlslc_page = 0;
-
 int game_stage = 0; // 0 = Main Menu, 1 = Playing, 2 = Pause menu; 3 = All Levels Completed; 4 = Level Selection
 
 #pragma region File hashing
@@ -360,8 +366,8 @@ int main()
     Rectangle pause_btn_rect = {(float)screenWidth / 2, 10, (float)MeasureText("Pause", 30) + 10, 30};
     pause_btn_rect.x -= pause_btn_rect.width / 2;
 
-    const int ui_rects_count = 3;
-    Rectangle ui_rects[ui_rects_count] = {pause_btn_rect, play_btn_rect, quit_btn_rect};
+    const int ui_rects_count = 1;
+    Rectangle ui_rects[ui_rects_count] = {pause_btn_rect};
 
     // Main Loop
     while (!WindowShouldClose() && !exit)
