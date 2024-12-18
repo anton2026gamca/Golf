@@ -10,10 +10,7 @@ The level editor loads/saves the level to the [level.dat](https://github.com/ant
 
 To load the level in game:
 
-save it
-
-copy it to the resources folder of the game
-
-rename it to l[level number].dat (replace "[level number]" with the level number you want it to be)
-
+save it<br>
+copy it to the resources folder of the game<br>
+rename it to l[level number].dat (replace "[level number]" with the level number you want it to be)<br>
 edit the levels_hash array in the main.cpp and recompile
