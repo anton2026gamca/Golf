@@ -1,6 +1,6 @@
 # Golf
 
-To run the game you need the [golf.exe](https://github.com/anton2026gamca/Golf/blob/main/golf/golf.exe) file with the [resources](https://github.com/anton2026gamca/Golf/tree/main/golf/resources) folder
+To run the game download the [latest release](https://github.com/anton2026gamca/Golf/releases).
 
 ### Golf Level Builder (Raylib required)
 
