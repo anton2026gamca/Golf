@@ -28,6 +28,18 @@ struct Level {
     unsigned __int8 **grid;
 };
 
+Sprite ball;
+Sprite hole;
+Sprite bumper;
+
+Level level;
+
+void DrawBumper(int grid_x, int grid_y)
+{
+    bumper.position = {(float)grid_x * level.grid_size, (float)grid_y * level.grid_size};
+    bumper.Draw();
+}
+
 #pragma region FILE_HASH
 // Rotate right function
 constexpr unsigned __int32 ROTR(unsigned __int32 x, unsigned __int32 n) {
@@ -238,7 +250,7 @@ int main()
     // Set the exit key to none
     SetExitKey(KEY_NULL); // default is ESC
 
-    Level level = Level();
+    level = Level();
     level.grid_size = 36;
     level.grid_width = (int)ceil(SCREEN_WIDTH / level.grid_size) + 1;
     level.grid_height = (int)ceil(SCREEN_HEIGHT / level.grid_size) + 1;
@@ -246,11 +258,14 @@ int main()
     for (int y = 0; y < level.grid_height; y++)
         for (int x = 0; x < level.grid_width; x++)
             level.grid[x][y] = 0;
+    if (level.shots < 1)
+        level.shots == 1;
     Color grid_color = GRAY;
     int grid_paint_value = 1;
 
-    Sprite ball = LoadSprite("resources/ball.png", {0.5, 0.5}, {floor(SCREEN_WIDTH * (1.0f / 10.0f) / level.grid_size + 0.5f) * level.grid_size, floor(SCREEN_HEIGHT / 2 / level.grid_size + 0.5f) * level.grid_size}, (float)level.grid_size / 128);
-    Sprite hole = LoadSprite("resources/hole.png", {0.5, 0.5}, {floor(SCREEN_WIDTH * (9.0f / 10.0f) / level.grid_size + 0.5f) * level.grid_size, floor(SCREEN_HEIGHT / 2 / level.grid_size + 0.5f) * level.grid_size}, (float)level.grid_size / 128);
+    ball = LoadSprite("resources/ball.png", {0.5, 0.5}, {floor(SCREEN_WIDTH * (1.0f / 10.0f) / level.grid_size + 0.5f) * level.grid_size, floor(SCREEN_HEIGHT / 2 / level.grid_size + 0.5f) * level.grid_size}, (float)level.grid_size / 128);
+    hole = LoadSprite("resources/hole.png", {0.5, 0.5}, {floor(SCREEN_WIDTH * (9.0f / 10.0f) / level.grid_size + 0.5f) * level.grid_size, floor(SCREEN_HEIGHT / 2 / level.grid_size + 0.5f) * level.grid_size}, (float)level.grid_size / 128);
+    bumper = LoadSprite("resources/bumper.png", {0, 0}, {0, 0}, (float)level.grid_size / 128);
 
     bool dragging_ball = false;
     bool dragging_hole = false;
@@ -265,7 +280,7 @@ int main()
     Rectangle shots_num = {bar_x + (float)MeasureText("Shots:", 30) + 55, 15, 40, 30};
     Rectangle shots_more = {bar_x + (float)MeasureText("Shots:", 30) + 100, 15, 30, 30};
     bar_x += shots_rect.width + 10;
-    Rectangle paint_options_rect = {bar_x + 10.0f, 10, 50 + (float)MeasureText("Paint:", 30) + (float)MeasureText("Clear", 30) + (float)MeasureText("Block", 30), 40};
+    Rectangle paint_options_rect = {bar_x + 10.0f, 10, 65 + (float)MeasureText("Paint:", 30) + (float)MeasureText("Clear", 30) + (float)MeasureText("Block", 30) + (float)MeasureText("Bumper", 30), 40};
     bar_x += paint_options_rect.width + 10;
 
     const int ui_rects_count = 4;
@@ -312,8 +327,13 @@ int main()
                 {
                     bool coord_is_in_ball = (ball_grid_pos.x == x || ball_grid_pos.x - 1 == x) && (ball_grid_pos.y == y || ball_grid_pos.y - 1 == y);
                     bool coord_is_in_hole = (hole_grid_pos.x == x || hole_grid_pos.x - 1 == x) && (hole_grid_pos.y == y || hole_grid_pos.y - 1 == y);
-                    if (!coord_is_in_ball && !coord_is_in_hole && level.grid[x][y] > 0)
-                        DrawRectangle(x * level.grid_size, y * level.grid_size, level.grid_size, level.grid_size, DARKGRAY);
+                    if (!coord_is_in_ball && !coord_is_in_hole)
+                    {
+                        if (level.grid[x][y] == 1)
+                            DrawRectangle(x * level.grid_size, y * level.grid_size, level.grid_size, level.grid_size, DARKGRAY);
+                        else if (level.grid[x][y] == 2)
+                            DrawBumper(x, y);
+                    }
                 }
             }
 
@@ -327,7 +347,12 @@ int main()
                 {
                     if (IsMouseButtonDown(0))
                         level.grid[x][y] = grid_paint_value;
-                    DrawRectangle(x * level.grid_size, y * level.grid_size, level.grid_size, level.grid_size, grid_paint_value > 0 ? DARKGRAY : DARKGREEN);
+                    if (grid_paint_value == 0)
+                        DrawRectangle(x * level.grid_size, y * level.grid_size, level.grid_size, level.grid_size, DARKGREEN);
+                    else if (grid_paint_value == 1)
+                        DrawRectangle(x * level.grid_size, y * level.grid_size, level.grid_size, level.grid_size, DARKGRAY);
+                    else if (grid_paint_value == 2)
+                        DrawBumper(x, y);
                 }
             }
 
@@ -389,6 +414,10 @@ int main()
             else if (Button({paint_options_rect.x + text_width + (float)MeasureText("Clear", 30) + 35, paint_options_rect.y + 5, (float)MeasureText("Block", 30) + 10, 30}, "Block", 30, GRAY, BLUE, RED))
             {
                 grid_paint_value = 1;
+            }
+            else if (Button({paint_options_rect.x + text_width + (float)MeasureText("Clear", 30) + (float)MeasureText("Block", 30) + 50, paint_options_rect.y + 5, (float)MeasureText("Bumper", 30) + 10, 30}, "Bumper", 30, GRAY, BLUE, RED))
+            {
+                grid_paint_value = 2;
             }
 
             level.ball_position = ball.position;

@@ -5,7 +5,6 @@
 #include "Shapes.h"
 #include <iostream>
 #include <fstream>
-
 #include <vector>
 #include <sstream>
 #include <iomanip>
@@ -27,6 +26,7 @@ float aim_distance = 0;
 #define BALL_BOUNCIENESS 1.03
 #define BALL_FRICTION 1.03
 #define BALL_FORCE_MULTIPLYER 10
+#define BUMPER_BOUNCE_VELOCITY 300 * BALL_FORCE_MULTIPLYER
 
 Sprite ball;
 Vector2 ball_velocity = {0, 0};
@@ -43,26 +43,38 @@ struct Level {
     unsigned __int8 grid_height;
     unsigned __int8 **grid;
 };
+struct Bumper
+{
+    int grid_x;
+    int grid_y;
+    double remaining_seconds;
+};
 Level level;
 int num_rects = -1;
 Rectangle *rects;
+int num_bumpers = -1;
+Bumper *bumpers = nullptr;
+Sprite bumper_up;
+Sprite bumper_down;
 int shots_left = 0;
 
+#define HASH_CHECK
 int level_num = 1;
 unsigned __int8 highest_level = 0;
-const int levels_count = 12;
+const int levels_count = 13;
 const std::string levels_hash[levels_count] = {"a7bbf0cb64e0e768dd37ce423e1d54348f06d5081295c8d5ed4526ce1b8ae309",
-                                                "0e4dbca2921c7149816502c993a9d49d4973206b7266a6c4cae8512014035c6a",
-                                                "95608a2fa227361dcea10bffc0817ffece385ccf1bfe968822e56706b6509235",
-                                                "f197625df2ba1d8fe0662e7465702722942175d831a7bd1a0129e1c941796120",
-                                                "8c37116116eb9e100a576b4fb4f5ddbc69868ed2deac7f212a34cc5154bc8dfb",
-                                                "1a374054a84211bb57aaf7df0a4048f5804aaf638924b23eabac6bfcfb563cae",
-                                                "a277054d348ceaa660b03dd77742495528f0bac23c0a0c147d0c74d6a6fa53c0",
-                                                "744e22a6eb803c16e3987eb9381fffb0a9f372031197ee2159811b4d0c250e11",
-                                                "937eb651e51a1270ee0465310a63a11ba059a2e19acb65cd9bf90ff1d1644bac",
-                                                "684b6b42f9b14143fca3cf32a644cd086ca6b7558e84773dcd23d2c7b4e9aeda",
-                                                "6c593044ca41307bae33c19cff483fbe8224a20b2585c2e8b2e5ee3e0e488a75",
-                                                "0ac0830a480c1b6048f2d715608777da628e53334b0ee4754edc1bc55a0e9e3f"};
+                                               "0e4dbca2921c7149816502c993a9d49d4973206b7266a6c4cae8512014035c6a",
+                                               "95608a2fa227361dcea10bffc0817ffece385ccf1bfe968822e56706b6509235",
+                                               "f197625df2ba1d8fe0662e7465702722942175d831a7bd1a0129e1c941796120",
+                                               "8c37116116eb9e100a576b4fb4f5ddbc69868ed2deac7f212a34cc5154bc8dfb",
+                                               "1a374054a84211bb57aaf7df0a4048f5804aaf638924b23eabac6bfcfb563cae",
+                                               "a277054d348ceaa660b03dd77742495528f0bac23c0a0c147d0c74d6a6fa53c0",
+                                               "744e22a6eb803c16e3987eb9381fffb0a9f372031197ee2159811b4d0c250e11",
+                                               "937eb651e51a1270ee0465310a63a11ba059a2e19acb65cd9bf90ff1d1644bac",
+                                               "684b6b42f9b14143fca3cf32a644cd086ca6b7558e84773dcd23d2c7b4e9aeda",
+                                               "6c593044ca41307bae33c19cff483fbe8224a20b2585c2e8b2e5ee3e0e488a75",
+                                               "0ac0830a480c1b6048f2d715608777da628e53334b0ee4754edc1bc55a0e9e3f",
+                                               "908113cf8a470857e21e6555b4ea49300b7362b7e2be7aeafc27211371b548ef"};
 int lvlslc_page = 0;
 int game_stage = 0; // 0 = Main Menu, 1 = Playing, 2 = Pause menu; 3 = All Levels Completed; 4 = Level Selection
 
@@ -238,7 +250,7 @@ int LoadLevelData(const char *filename, Level *level)
     ifstream.read((char*) &level->shots, sizeof(unsigned __int8));
     ifstream.read((char*) &level->grid_size, sizeof(unsigned __int8));
     ifstream.read((char*) &level->grid_width, sizeof(unsigned __int8));
-    ifstream.read((char*) &level->grid_height, sizeof(unsigned __int8));
+    ifstream.read((char*) &level->grid_height, sizeof(unsigned __int8)); 
     if (was_loaded)
         FreeGrid(level->grid, level->grid_width);
     level->grid = CreateGrid(level->grid_width, level->grid_height);
@@ -254,6 +266,20 @@ int LoadLevelData(const char *filename, Level *level)
     return 0;
 }
 
+void FreeLevel()
+{
+    if (num_rects >= 0)
+    {
+        delete[] rects;
+        rects = nullptr;
+    }
+    if (num_bumpers >= 0)
+    {
+        delete[] bumpers;
+        bumpers = nullptr;
+    }
+}
+
 int LoadLevel(int level_num)
 {
     char level_filename[25];
@@ -263,8 +289,8 @@ int LoadLevel(int level_num)
         cerr << "ERROR: LEVEL: Failed to load level: " << level_filename;
         return 1;
     }
-    if (num_rects >= 0)
-        delete[] rects;
+
+    FreeLevel();
     num_rects = 0;
     for (int y = 0; y < level.grid_height; y++)
         for (int x = 0; x < level.grid_width; x++)
@@ -272,10 +298,31 @@ int LoadLevel(int level_num)
                 num_rects++;
     rects = new Rectangle[num_rects];
     int i = 0;
-    for (int y = 0; y < level.grid_height; y++)\
+    for (int y = 0; y < level.grid_height; y++)
         for (int x = 0; x < level.grid_width; x++)
             if (level.grid[x][y] == 1)
                 rects[i++] = {(float)x * level.grid_size, (float)y * level.grid_size, (float)level.grid_size, (float)level.grid_size};
+
+    num_bumpers = 0;
+    for (int y = 0; y < level.grid_height; y++)
+        for (int x = 0; x < level.grid_width; x++)
+            if (level.grid[x][y] == 2)
+                num_bumpers++;
+    bumpers = new Bumper[num_bumpers]();
+    i = 0;
+    for (int y = 0; y < level.grid_height; y++)
+    {
+        for (int x = 0; x < level.grid_width; x++)
+        {
+            if (level.grid[x][y] == 2)
+            {
+                bumpers[i].grid_x = x;
+                bumpers[i].grid_y = y;
+                bumpers[i].remaining_seconds = 0;
+                i++;
+            }
+        }
+    }
     ball.position = level.ball_position;
     hole.position = level.hole_position;
     shots_left = (int)level.shots;
@@ -289,6 +336,21 @@ void DrawLevel()
     ball.Draw();
     for (int i = 0; i < num_rects; i++)
         DrawRectanglePro(rects[i], {0, 0}, 0, DARKGRAY);
+    
+    for (int i = 0; i < num_bumpers; i++)
+    {
+        if (bumpers[i].remaining_seconds <= 0)
+        {
+            bumper_up.position = {(float)bumpers[i].grid_x * level.grid_size, (float)bumpers[i].grid_y * level.grid_size};
+            bumper_up.Draw();
+        }
+        else
+        {
+            bumper_down.position = {(float)bumpers[i].grid_x * level.grid_size, (float)bumpers[i].grid_y * level.grid_size};
+            bumper_down.Draw();
+            bumpers[i].remaining_seconds -= GetFrameTime();
+        }
+    }
 }
 #pragma endregion
 #pragma region Player
@@ -329,11 +391,14 @@ int main()
 
     ball = LoadSprite("resources/ball.png", {0.5, 0.5}, {(float)screenWidth / 2, (float)screenHeight / 2}, 1.0f / 4.0f);
     hole = LoadSprite("resources/hole.png", {0.5, 0.5}, {(float)screenWidth / 2, (float)screenHeight / 2}, 1.0f / 4.0f);
+    bumper_up = LoadSprite("resources/bumper_up.png", {0, 0}, {0, 0}, 1);
+    bumper_down = LoadSprite("resources/bumper_down.png", {0, 0}, {0, 0}, 1);
 
     LoadPlayerData();
     if (LoadLevel(level_num) > 0)
         exit = true;
 
+#ifdef HASH_CHECK
     for (int i = 0; i < levels_count; i++)
     {
         char filename[25];
@@ -355,6 +420,7 @@ int main()
             exit = true;
         }
     }
+#endif
 
     const int btn_width = 450;
     const int num_buttons = 2;
@@ -438,16 +504,43 @@ int main()
                 for (int i = 0; i < num_rects; i++)
                     if (ball.GetCollisionRect(rects[i], {0, 0}, 0))
                         collision_x = true;
+                for (int i = 0; i < num_bumpers; i++)
+                {
+                    Rectangle bumper_rect = {(float)bumpers[i].grid_x * level.grid_size, (float)bumpers[i].grid_y * level.grid_size, (float)level.grid_size, (float)level.grid_size};
+                    if (ball.GetCollisionRect(bumper_rect, {0, 0}, 0))
+                    {
+                        collision_x = true;
+                        if (bumpers[i].remaining_seconds <= 0)
+                        {
+                            ball_velocity = Vector2Multiply(Vector2Normalize(ball_velocity), {BUMPER_BOUNCE_VELOCITY, BUMPER_BOUNCE_VELOCITY});
+                            bumpers[i].remaining_seconds = 2;
+                        }
+                    }
+                }
                 if (collision_x || ball.position.x - ball.GetWidth() / 2 < 0 || ball.position.x + ball.GetWidth() / 2 > screenWidth)
                     ball_velocity.x = -ball_velocity.x * BALL_BOUNCIENESS;
                 else
                     move_by.x = ball_velocity.x * delta_time;
                 ball.position.x = ball_old_position.x;
+
                 ball.position.y += ball_velocity.y * delta_time;
                 bool collision_y = false;
                 for (int i = 0; i < num_rects; i++)
                     if (ball.GetCollisionRect(rects[i], {0, 0}, 0))
                         collision_y = true;
+                for (int i = 0; i < num_bumpers; i++)
+                {
+                    Rectangle bumper_rect = {(float)bumpers[i].grid_x * level.grid_size, (float)bumpers[i].grid_y * level.grid_size, (float)level.grid_size, (float)level.grid_size};
+                    if (ball.GetCollisionRect(bumper_rect, {0, 0}, 0))
+                    {
+                        collision_y = true;
+                        if (bumpers[i].remaining_seconds <= 0)
+                        {
+                            ball_velocity = Vector2Multiply(Vector2Normalize(ball_velocity), {BUMPER_BOUNCE_VELOCITY, BUMPER_BOUNCE_VELOCITY});
+                            bumpers[i].remaining_seconds = 2;
+                        }
+                    }
+                }
                 if (collision_y || ball.position.y - ball.GetHeight() / 2 < 0 || ball.position.y + ball.GetHeight() / 2 > screenHeight)
                     ball_velocity.y = -ball_velocity.y * BALL_BOUNCIENESS;
                 else
@@ -622,7 +715,7 @@ int main()
 
     SavePlayerData();
 
-    delete[] rects;
+    FreeLevel();
     FreeGrid(level.grid, level.grid_width);
     ball.Delete();
     CloseWindow();
