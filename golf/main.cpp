@@ -9,6 +9,7 @@
 #include <sstream>
 #include <iomanip>
 #include <cstring>
+#include <cstdint>
 
 using namespace std;
 
@@ -37,11 +38,11 @@ const char *player_data_filename = "resources/p.dat";
 struct Level {
     Vector2 ball_position;
     Vector2 hole_position;
-    unsigned __int8 shots;
-    unsigned __int8 grid_size;
-    unsigned __int8 grid_width;
-    unsigned __int8 grid_height;
-    unsigned __int8 **grid;
+    uint8_t shots;
+    uint8_t grid_size;
+    uint8_t grid_width;
+    uint8_t grid_height;
+    uint8_t **grid;
 };
 struct Bumper
 {
@@ -60,7 +61,7 @@ int shots_left = 0;
 
 #define HASH_CHECK
 int level_num = 1;
-unsigned __int8 highest_level = 0;
+uint8_t highest_level = 0;
 const int levels_count = 13;
 const std::string levels_hash[levels_count] = {"a7bbf0cb64e0e768dd37ce423e1d54348f06d5081295c8d5ed4526ce1b8ae309",
                                                "0e4dbca2921c7149816502c993a9d49d4973206b7266a6c4cae8512014035c6a",
@@ -80,12 +81,12 @@ int game_stage = 0; // 0 = Main Menu, 1 = Playing, 2 = Pause menu; 3 = All Level
 
 #pragma region File hashing
 // Rotate right function
-constexpr unsigned __int32 ROTR(unsigned __int32 x, unsigned __int32 n) {
+constexpr uint32_t ROTR(uint32_t x, uint32_t n) {
     return (x >> n) | (x << (32 - n));
 }
 
 // SHA-256 constants
-const unsigned __int32 K[] = {
+const uint32_t K[] = {
     0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
     0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
     0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
@@ -98,9 +99,9 @@ const unsigned __int32 K[] = {
 
 // SHA-256 context
 struct SHA256Context {
-    unsigned __int32 h[8];
-    unsigned __int64 bitlen;
-    std::vector<unsigned __int8> data;
+    uint32_t h[8];
+    uint64_t bitlen;
+    std::vector<uint8_t> data;
 };
 
 // Initialize SHA-256 context
@@ -118,33 +119,33 @@ void sha256Init(SHA256Context& ctx) {
 }
 
 // Process a 512-bit chunk
-void sha256Transform(SHA256Context& ctx, const unsigned __int8* chunk) {
-    unsigned __int32 w[64];
+void sha256Transform(SHA256Context& ctx, const uint8_t* chunk) {
+    uint32_t w[64];
     for (int i = 0; i < 16; i++) {
         w[i] = (chunk[i * 4] << 24) | (chunk[i * 4 + 1] << 16) | (chunk[i * 4 + 2] << 8) | chunk[i * 4 + 3];
     }
     for (int i = 16; i < 64; i++) {
-        unsigned __int32 s0 = ROTR(w[i - 15], 7) ^ ROTR(w[i - 15], 18) ^ (w[i - 15] >> 3);
-        unsigned __int32 s1 = ROTR(w[i - 2], 17) ^ ROTR(w[i - 2], 19) ^ (w[i - 2] >> 10);
+        uint32_t s0 = ROTR(w[i - 15], 7) ^ ROTR(w[i - 15], 18) ^ (w[i - 15] >> 3);
+        uint32_t s1 = ROTR(w[i - 2], 17) ^ ROTR(w[i - 2], 19) ^ (w[i - 2] >> 10);
         w[i] = w[i - 16] + s0 + w[i - 7] + s1;
     }
 
-    unsigned __int32 a = ctx.h[0];
-    unsigned __int32 b = ctx.h[1];
-    unsigned __int32 c = ctx.h[2];
-    unsigned __int32 d = ctx.h[3];
-    unsigned __int32 e = ctx.h[4];
-    unsigned __int32 f = ctx.h[5];
-    unsigned __int32 g = ctx.h[6];
-    unsigned __int32 h = ctx.h[7];
+    uint32_t a = ctx.h[0];
+    uint32_t b = ctx.h[1];
+    uint32_t c = ctx.h[2];
+    uint32_t d = ctx.h[3];
+    uint32_t e = ctx.h[4];
+    uint32_t f = ctx.h[5];
+    uint32_t g = ctx.h[6];
+    uint32_t h = ctx.h[7];
 
     for (int i = 0; i < 64; i++) {
-        unsigned __int32 S1 = ROTR(e, 6) ^ ROTR(e, 11) ^ ROTR(e, 25);
-        unsigned __int32 ch = (e & f) ^ (~e & g);
-        unsigned __int32 temp1 = h + S1 + ch + K[i] + w[i];
-        unsigned __int32 S0 = ROTR(a, 2) ^ ROTR(a, 13) ^ ROTR(a, 22);
-        unsigned __int32 maj = (a & b) ^ (a & c) ^ (b & c);
-        unsigned __int32 temp2 = S0 + maj;
+        uint32_t S1 = ROTR(e, 6) ^ ROTR(e, 11) ^ ROTR(e, 25);
+        uint32_t ch = (e & f) ^ (~e & g);
+        uint32_t temp1 = h + S1 + ch + K[i] + w[i];
+        uint32_t S0 = ROTR(a, 2) ^ ROTR(a, 13) ^ ROTR(a, 22);
+        uint32_t maj = (a & b) ^ (a & c) ^ (b & c);
+        uint32_t temp2 = S0 + maj;
 
         h = g;
         g = f;
@@ -167,7 +168,7 @@ void sha256Transform(SHA256Context& ctx, const unsigned __int8* chunk) {
 }
 
 // Finalize and compute the hash
-void sha256Final(SHA256Context& ctx, std::vector<unsigned __int8>& digest) {
+void sha256Final(SHA256Context& ctx, std::vector<uint8_t>& digest) {
     size_t dataSize = ctx.data.size();
     ctx.data.push_back(0x80);
 
@@ -175,7 +176,7 @@ void sha256Final(SHA256Context& ctx, std::vector<unsigned __int8>& digest) {
         ctx.data.push_back(0x00);
     }
 
-    unsigned __int64 bitlen = ctx.bitlen + dataSize * 8;
+    uint64_t bitlen = ctx.bitlen + dataSize * 8;
     for (int i = 7; i >= 0; i--) {
         ctx.data.push_back((bitlen >> (i * 8)) & 0xFF);
     }
@@ -192,7 +193,7 @@ void sha256Final(SHA256Context& ctx, std::vector<unsigned __int8>& digest) {
 }
 
 // Compute the SHA-256 hash of a file
-bool sha256File(const std::string& filename, std::vector<unsigned __int8>& digest) {
+bool sha256File(const std::string& filename, std::vector<uint8_t>& digest) {
     std::ifstream file(filename, std::ios::binary);
     if (!file) {
         std::cerr << "Unable to open file.\n";
@@ -202,7 +203,7 @@ bool sha256File(const std::string& filename, std::vector<unsigned __int8>& diges
     SHA256Context ctx;
     sha256Init(ctx);
 
-    std::vector<unsigned __int8> buffer(4096);
+    std::vector<uint8_t> buffer(4096);
     while (file.good()) {
         file.read(reinterpret_cast<char*>(buffer.data()), buffer.size());
         std::streamsize bytesRead = file.gcount();
@@ -215,24 +216,24 @@ bool sha256File(const std::string& filename, std::vector<unsigned __int8>& diges
 }
 
 // Convert digest to a hexadecimal string
-std::string toHexString(const std::vector<unsigned __int8>& digest) {
+std::string toHexString(const std::vector<uint8_t>& digest) {
     std::ostringstream oss;
-    for (unsigned __int8 byte : digest) {
+    for (uint8_t byte : digest) {
         oss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(byte);
     }
     return oss.str();
 }
 #pragma endregion
 #pragma region Level Loading and Level Grid
-unsigned __int8 **CreateGrid(int width, int height) {
-    unsigned __int8 **grid = new unsigned __int8*[width];
+uint8_t **CreateGrid(int width, int height) {
+    uint8_t **grid = new uint8_t*[width];
     for (int i = 0; i < width; ++i) {
-        grid[i] = new unsigned __int8[height];
+        grid[i] = new uint8_t[height];
     }
     return grid;
 }
 
-void FreeGrid(unsigned __int8 **grid, int width) {
+void FreeGrid(uint8_t **grid, int width) {
     for (int i = 0; i < width; ++i) {
         delete[] grid[i];
     }
@@ -247,10 +248,10 @@ int LoadLevelData(const char *filename, Level *level)
         return 1;
     ifstream.read((char*) &level->ball_position, sizeof(Vector2));
     ifstream.read((char*) &level->hole_position, sizeof(Vector2));
-    ifstream.read((char*) &level->shots, sizeof(unsigned __int8));
-    ifstream.read((char*) &level->grid_size, sizeof(unsigned __int8));
-    ifstream.read((char*) &level->grid_width, sizeof(unsigned __int8));
-    ifstream.read((char*) &level->grid_height, sizeof(unsigned __int8)); 
+    ifstream.read((char*) &level->shots, sizeof(uint8_t));
+    ifstream.read((char*) &level->grid_size, sizeof(uint8_t));
+    ifstream.read((char*) &level->grid_width, sizeof(uint8_t));
+    ifstream.read((char*) &level->grid_height, sizeof(uint8_t)); 
     if (was_loaded)
         FreeGrid(level->grid, level->grid_width);
     level->grid = CreateGrid(level->grid_width, level->grid_height);
@@ -258,7 +259,7 @@ int LoadLevelData(const char *filename, Level *level)
     {
         for (int x = 0; x < level->grid_width; x++)
         {
-            ifstream.read((char*) &level->grid[x][y], sizeof(unsigned __int8));
+            ifstream.read((char*) &level->grid[x][y], sizeof(uint8_t));
         }
     }
     ifstream.close();
@@ -357,7 +358,7 @@ void DrawLevel()
 void SavePlayerData()
 {
     ofstream ofstream(player_data_filename, ios::out | ios::binary);
-    ofstream.write((char*) &highest_level, sizeof(unsigned __int8));
+    ofstream.write((char*) &highest_level, sizeof(uint8_t));
     ofstream.close();
 }
 
@@ -369,7 +370,7 @@ int LoadPlayerData()
         SavePlayerData();
         return 1;
     }
-    ifstream.read((char*) &highest_level, sizeof(unsigned __int8));
+    ifstream.read((char*) &highest_level, sizeof(uint8_t));
     ifstream.close();
 
     return 0;
@@ -403,7 +404,7 @@ int main()
     {
         char filename[25];
         sprintf(filename, "resources/l%d.dat", i + 1);
-        std::vector<unsigned __int8> digest;
+        std::vector<uint8_t> digest;
         if (sha256File(filename, digest)) {
             std::string hash = toHexString(digest);
             if (hash == levels_hash[i])
