@@ -11,6 +11,6 @@ The level editor loads/saves the level from/to the [level.dat](https://github.co
 To load the level in game:<br>
  ### 1. save it<br>
  ### 2. copy it to the resources folder of the game
- ![Screenshot 2025-01-05 204550](https://github.com/user-attachments/assets/a3dff3a7-ce17-4891-a642-4dacaff4188b)<br>
+ ![Screenshot 2025-01-05 204550](https://github.com/user-attachments/assets/a3dff3a7-ce17-4891-a642-4dacaff4188b)
  ### 4. rename it to l[level number].dat (replace "[level number]" with the level number you want it to be)<br>
  ### 5. edit the levels_hash array in the main.cpp and recompile
