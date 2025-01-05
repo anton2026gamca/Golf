@@ -10,6 +10,6 @@ To run the level editor you will need the [golf-levelbuilder.exe](https://github
 The level editor loads/saves the level from/to the [level.dat](https://github.com/anton2026gamca/Golf/blob/main/golf-levelbuilder/level.dat) file.<br>
 To load the level in game:<br>
  1. save it<br>
- 2. copy it to the resources folder of the game ![Screenshot 2025-01-05 204550](https://github.com/user-attachments/assets/7cf79092-73c0-4097-a934-6f218083efaf)<br>
+ 2. copy it to the resources folder of the game ![Screenshot 2025-01-05 204550](https://github.com/user-attachments/assets/a3dff3a7-ce17-4891-a642-4dacaff4188b)<br>
  4. rename it to l[level number].dat (replace "[level number]" with the level number you want it to be)<br>
  5. edit the levels_hash array in the main.cpp and recompile
