@@ -12,6 +12,6 @@ To load the level in game:<br>
  #### 1. save it
  ![Screenshot 2025-01-05 205346](https://github.com/user-attachments/assets/a2a8f661-b890-4308-a809-a040b3b8f004)
  #### 2. copy it to the resources folder of the game
- ![Screenshot 2025-01-05 204550](https://github.com/user-attachments/assets/a3dff3a7-ce17-4891-a642-4dacaff4188b)
+ ![Screenshot 2025-01-05 205714](https://github.com/user-attachments/assets/3c44a110-5d2c-42b1-bb86-7630e2ead835)
  #### 4. rename it to l[level number].dat (replace "[level number]" with the level number you want it to be)<br>
  #### 5. edit the levels_hash array in the main.cpp and recompile
