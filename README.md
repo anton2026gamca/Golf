@@ -2,6 +2,8 @@
 
 To run the game download the [latest release](https://github.com/anton2026gamca/Golf/releases).
 
+This project was made using my library for raylib, go check it out [here](https://github.com/anton2026gamca/BetterRaylib).
+
 ### Golf Level Editor (Raylib required)
 
 To run the level editor you will need the [golf-levelbuilder.exe](https://github.com/anton2026gamca/Golf/blob/main/golf-levelbuilder/golf-levelbuilder.exe) file and the [resources](https://github.com/anton2026gamca/Golf/tree/main/golf-levelbuilder/resources) folder
