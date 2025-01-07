@@ -1,6 +1,6 @@
 # Golf
 
-To run the game download the [latest release](https://github.com/anton2026gamca/Golf/releases).
+To run the game download it on [itch.io](https://anton2026.itch.io/golf).
 
 This project was made using my library for raylib, go check it out [here](https://github.com/anton2026gamca/BetterRaylib).
 
