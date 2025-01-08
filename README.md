@@ -6,7 +6,7 @@ This project was made using my library for raylib, go check it out [here](https:
 
 ## Golf Level Editor (Raylib required)
 
-To run the level editor you will need the [golf-levelbuilder.exe](https://github.com/anton2026gamca/Golf/blob/main/golf-levelbuilder/golf-levelbuilder.exe) file and the [resources](https://github.com/anton2026gamca/Golf/tree/main/golf-levelbuilder/resources) folder.<br>
+To run the level editor you will need the [golf-levelbuilder-windows.exe](https://github.com/anton2026gamca/Golf/blob/main/golf-levelbuilder/golf-levelbuilder-windows.exe) (or [golf-levelbuilder-linux](https://github.com/anton2026gamca/Golf/blob/main/golf-levelbuilder/golf-levelbuilder-linux)) file and the [resources](https://github.com/anton2026gamca/Golf/tree/main/golf-levelbuilder/resources) folder.<br>
 To load the level in game:<br>
  ### 1. Save it
  ![Screenshot 2025-01-05 205346](https://github.com/user-attachments/assets/a2a8f661-b890-4308-a809-a040b3b8f004)
