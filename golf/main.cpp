@@ -62,7 +62,7 @@ int shots_left = 0;
 #define HASH_CHECK
 int level_num = 1;
 uint8_t highest_level = 0;
-const int levels_count = 13;
+const int levels_count = 20;
 const std::string levels_hash[levels_count] = {"a7bbf0cb64e0e768dd37ce423e1d54348f06d5081295c8d5ed4526ce1b8ae309",
                                                "0e4dbca2921c7149816502c993a9d49d4973206b7266a6c4cae8512014035c6a",
                                                "95608a2fa227361dcea10bffc0817ffece385ccf1bfe968822e56706b6509235",
@@ -74,12 +74,18 @@ const std::string levels_hash[levels_count] = {"a7bbf0cb64e0e768dd37ce423e1d5434
                                                "937eb651e51a1270ee0465310a63a11ba059a2e19acb65cd9bf90ff1d1644bac",
                                                "684b6b42f9b14143fca3cf32a644cd086ca6b7558e84773dcd23d2c7b4e9aeda",
                                                "6c593044ca41307bae33c19cff483fbe8224a20b2585c2e8b2e5ee3e0e488a75",
-                                               "0ac0830a480c1b6048f2d715608777da628e53334b0ee4754edc1bc55a0e9e3f",
-                                               "908113cf8a470857e21e6555b4ea49300b7362b7e2be7aeafc27211371b548ef"};
+                                               "908113cf8a470857e21e6555b4ea49300b7362b7e2be7aeafc27211371b548ef",
+                                               "6bda528d604c870bef609630cbba3aee2a737c450fd87244f5f36cf5c730a338",
+                                               "75fbde4807c06352307b977d1a6f526ef6ae649559ff3f7a4a898fb90a51c701",
+                                               "9c4a38a9ee259574cea980f9710f2231416737a21d755f3dcc6939f5aa424dbe",
+                                               "380d7e14f4c042ac115e781dbfbfe72107fe05ed5411064313cda6bf14b0f4b1",
+                                               "f2bc3b76d115006b80f5d2faea3eff0989a3a553a621b06c8d168d431a90aaff",
+                                               "714e7804537a4f2a7c2c423b190fca4055de61aaa6fb772c3eeeb954fb149e90",
+                                               "d1c622d3af2d0e45bd3142fd8a63435db833ef863d9df4f97d7ad5eee21ee5cd",
+                                               "bc931d518ad27d498af1bd6f40c9b2056f0327b5954be40d2baa8d466111edd7"};
 int lvlslc_page = 0;
 int game_stage = 0; // 0 = Main Menu, 1 = Playing, 2 = Pause menu; 3 = All Levels Completed; 4 = Level Selection
 
-#pragma region File hashing
 // Rotate right function
 constexpr uint32_t ROTR(uint32_t x, uint32_t n) {
     return (x >> n) | (x << (32 - n));
@@ -223,8 +229,7 @@ std::string toHexString(const std::vector<uint8_t>& digest) {
     }
     return oss.str();
 }
-#pragma endregion
-#pragma region Level Loading and Level Grid
+
 uint8_t **CreateGrid(int width, int height) {
     uint8_t **grid = new uint8_t*[width];
     for (int i = 0; i < width; ++i) {
@@ -353,8 +358,7 @@ void DrawLevel()
         }
     }
 }
-#pragma endregion
-#pragma region Player
+
 void SavePlayerData()
 {
     ofstream ofstream(player_data_filename, ios::out | ios::binary);
@@ -375,7 +379,6 @@ int LoadPlayerData()
 
     return 0;
 }
-#pragma endregion
 
 int main()
 {
