@@ -14,7 +14,7 @@
 using namespace std;
 
 // Define screen width and height
-int screenWidth = 1280;
+int screenWidth = 1296;
 int screenHeight = 720;
 
 #define AIM_MAX_DISTANCE 300
@@ -59,10 +59,9 @@ Sprite bumper_up;
 Sprite bumper_down;
 int shots_left = 0;
 
-#define HASH_CHECK
 int level_num = 1;
 uint8_t highest_level = 0;
-const int levels_count = 20;
+const int levels_count = 23;
 const std::string levels_hash[levels_count] = {"a7bbf0cb64e0e768dd37ce423e1d54348f06d5081295c8d5ed4526ce1b8ae309",
                                                "0e4dbca2921c7149816502c993a9d49d4973206b7266a6c4cae8512014035c6a",
                                                "95608a2fa227361dcea10bffc0817ffece385ccf1bfe968822e56706b6509235",
@@ -82,7 +81,10 @@ const std::string levels_hash[levels_count] = {"a7bbf0cb64e0e768dd37ce423e1d5434
                                                "f2bc3b76d115006b80f5d2faea3eff0989a3a553a621b06c8d168d431a90aaff",
                                                "714e7804537a4f2a7c2c423b190fca4055de61aaa6fb772c3eeeb954fb149e90",
                                                "d1c622d3af2d0e45bd3142fd8a63435db833ef863d9df4f97d7ad5eee21ee5cd",
-                                               "bc931d518ad27d498af1bd6f40c9b2056f0327b5954be40d2baa8d466111edd7"};
+                                               "bc931d518ad27d498af1bd6f40c9b2056f0327b5954be40d2baa8d466111edd7",
+                                               "9b432acb77ea5a64ea61152b6e40d0ea6b6521ba74933b2669d5757d0c13ccd0",
+                                               "2fd6c58451a6f5dcae640bd6714eeb4fae099983d3b1a175be8be6c42ff4188b",
+                                               "505c368f2ddd10ca60d105e9389dcbd4a5f3d7caeb5b5c3de21715226c3ff8b1"};
 int lvlslc_page = 0;
 int game_stage = 0; // 0 = Main Menu, 1 = Playing, 2 = Pause menu; 3 = All Levels Completed; 4 = Level Selection
 
@@ -399,10 +401,10 @@ int main()
     bumper_down = LoadSprite("resources/bumper_down.png", {0, 0}, {0, 0}, 1);
 
     LoadPlayerData();
-    if (LoadLevel(level_num) > 0)
-        exit = true;
+    LoadLevel(level_num);
+    cout << level.grid_width << endl;
 
-#ifdef HASH_CHECK
+#ifndef DONT_CHECK_HASH
     for (int i = 0; i < levels_count; i++)
     {
         char filename[25];
