@@ -10,7 +10,7 @@ To run the level editor you will need the [golf-levelbuilder-windows.exe](https:
 
 ### How to make your own levels:<br>
   #### 1. Run the [golf-levelbuilder-windows.exe](https://github.com/anton2026gamca/Golf/blob/main/golf-levelbuilder/golf-levelbuilder-windows.exe) (or [golf-levelbuilder-linux](https://github.com/anton2026gamca/Golf/blob/main/golf-levelbuilder/golf-levelbuilder-linux))
-  #### 2. Load the l.dat file in the resources folder od the game (To create a new file just create a blank text document, name it *.dat and load it)
+  #### 2. Load the l.dat file in the resources folder od the game (To create a new file just create a blank text document, name it `*.dat` (replace `*` with whatever you want) and load it)
   ![Screenshot 2025-01-12 210941](https://github.com/user-attachments/assets/d98c7440-b980-4d7e-b93c-322a02af66e7)
   #### 3. Add your levels
   ![Screenshot 2025-01-12 210225](https://github.com/user-attachments/assets/d752de99-9d3b-455d-99fd-34612d7b521a)
