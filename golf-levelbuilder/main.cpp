@@ -16,32 +16,64 @@
 using namespace std;
 
 // Define screen width and height
-#define SCREEN_WIDTH 1280
+#define SCREEN_WIDTH 1296
 #define SCREEN_HEIGHT 720
+
+int windowScale = 2;
+#define VIRTUAL_WIDTH (int) SCREEN_WIDTH / windowScale
+#define VIRTUAL_HEIGHT (int) SCREEN_HEIGHT / windowScale
+
+// Macro to replace GetMousePosition with a scaled version
+#define GetMousePosition() (Vector2){ \
+    GetMousePosition().x * (float)VIRTUAL_WIDTH / (float)SCREEN_WIDTH, \
+    GetMousePosition().y * (float)VIRTUAL_HEIGHT / (float)SCREEN_HEIGHT \
+}
+
+#define GetScreenWidth() (int){ \
+    GetScreenWidth() * VIRTUAL_WIDTH / SCREEN_WIDTH \
+}
+
+#define GetScreenHeight() (int){ \
+    GetScreenHeight() * VIRTUAL_WIDTH / SCREEN_WIDTH \
+}
+
+#define RAYGUI_IMPLEMENTATION
+#include "raygui.h"
+
+#undef RAYGUI_IMPLEMENTATION            // Avoid including raygui implementation again
+#define GUI_WINDOW_FILE_DIALOG_IMPLEMENTATION
+#include "gui_window_file_dialog.h"
 
 struct Level {
     Vector2 ball_position;
     Vector2 hole_position;
     uint8_t shots;
+    uint8_t **grid;
+};
+
+struct Levels {
     uint8_t grid_size;
     uint8_t grid_width;
     uint8_t grid_height;
-    uint8_t **grid;
+    uint8_t count;
+    Level *all;
 };
 
 Sprite ball;
 Sprite hole;
 Sprite bumper;
 
-Level level;
+Levels levels;
+//Level level;
+
+int stage = 0; // 0 - selecting level; 1 - editing level
 
 void DrawBumper(int grid_x, int grid_y)
 {
-    bumper.position = {(float)grid_x * level.grid_size, (float)grid_y * level.grid_size};
+    bumper.position = {(float)grid_x * levels.grid_size, (float)grid_y * levels.grid_size};
     bumper.Draw();
 }
 
-#pragma region FILE_HASH
 // Rotate right function
 constexpr uint32_t ROTR(uint32_t x, uint32_t n) {
     return (x >> n) | (x << (32 - n));
@@ -185,12 +217,11 @@ std::string toHexString(const std::vector<uint8_t>& digest) {
     }
     return oss.str();
 }
-#pragma endregion
-#pragma region LOAD-SAVE SYSTEM
+
 uint8_t **CreateGrid(int width, int height) {
     uint8_t **grid = new uint8_t*[width];
     for (int i = 0; i < width; ++i) {
-        grid[i] = new uint8_t[height];
+        grid[i] = new uint8_t[height]();
     }
     return grid;
 }
@@ -202,44 +233,114 @@ void FreeGrid(uint8_t **grid, int width) {
     delete[] grid;
 }
 
-void Save(char *filename, Level *level)
+Level *CreateLevels(int count, int grid_width, int grid_height)
+{
+    Level *levels = new Level[count];
+    for (int i = 0; i < count; i++)
+    {
+        levels[i] = Level();
+        levels[i].grid = CreateGrid(grid_width, grid_height);
+    }
+    return levels;
+}
+
+void FreeLevels(Level *levels, int count, int grid_width)
+{
+    for (int i = 0; i < count; i++)
+    {
+        FreeGrid(levels[i].grid, grid_width);
+    }
+    delete[] levels;
+}
+
+void Save(char *filename, Levels *levels)
 {
     ofstream ofstream(filename, ios::out | ios::binary);
-    ofstream.write((char*) &level->ball_position, sizeof(Vector2));
-    ofstream.write((char*) &level->hole_position, sizeof(Vector2));
-    ofstream.write((char*) &level->shots, sizeof(uint8_t));
-    ofstream.write((char*) &level->grid_size, sizeof(uint8_t));
-    ofstream.write((char*) &level->grid_width, sizeof(uint8_t));
-    ofstream.write((char*) &level->grid_height, sizeof(uint8_t));
-    for (int y = 0; y < level->grid_height; y++)
+    ofstream.write((char*) &levels->grid_size, sizeof(uint8_t));
+    ofstream.write((char*) &levels->grid_width, sizeof(uint8_t));
+    ofstream.write((char*) &levels->grid_height, sizeof(uint8_t));
+    ofstream.write((char*) &levels->count, sizeof(uint8_t));
+    for (int i = 0; i < levels->count; i++)
     {
-        for (int x = 0; x < level->grid_width; x++)
+        ofstream.write((char*) &levels->all[i].ball_position, sizeof(Vector2));
+        ofstream.write((char*) &levels->all[i].hole_position, sizeof(Vector2));
+        ofstream.write((char*) &levels->all[i].shots, sizeof(uint8_t));
+        for (int y = 0; y < levels->grid_height; y++)
         {
-            ofstream.write((char*) &level->grid[x][y], sizeof(uint8_t));
+            for (int x = 0; x < levels->grid_width; x++)
+            {
+                ofstream.write((char*) &levels->all[i].grid[x][y], sizeof(uint8_t));
+            }
         }
     }
     ofstream.close();
+
+    std::vector<uint8_t> digest;
+    if (sha256File(filename, digest)) {
+        std::cout << "SHA-256 hash: " << toHexString(digest) << std::endl;
+    } else {
+        std::cerr << "Failed to compute hash.\n";
+    }
 }
 
-void Load(char *filename, Level *level)
+void Load(char *filename, Levels *levels)
 {
     ifstream ifstream(filename, ios::in | ios::binary);
-    ifstream.read((char*) &level->ball_position, sizeof(Vector2));
-    ifstream.read((char*) &level->hole_position, sizeof(Vector2));
-    ifstream.read((char*) &level->shots, sizeof(uint8_t));
-    ifstream.read((char*) &level->grid_size, sizeof(uint8_t));
-    ifstream.read((char*) &level->grid_width, sizeof(uint8_t));
-    ifstream.read((char*) &level->grid_height, sizeof(uint8_t));
-    for (int y = 0; y < level->grid_height; y++)
+    if (!ifstream.is_open())
+        return;
+    ifstream.read((char*) &levels->grid_size, sizeof(uint8_t));
+    ifstream.read((char*) &levels->grid_width, sizeof(uint8_t));
+    ifstream.read((char*) &levels->grid_height, sizeof(uint8_t));
+    if (levels->count > 0)
+        FreeLevels(levels->all, levels->count, levels->grid_width);
+    ifstream.read((char*) &levels->count, sizeof(uint8_t));
+    levels->all = CreateLevels(levels->count, levels->grid_width, levels->grid_height);
+    for (int i = 0; i < levels->count; i++)
     {
-        for (int x = 0; x < level->grid_width; x++)
+        ifstream.read((char*) &levels->all[i].ball_position, sizeof(Vector2));
+        ifstream.read((char*) &levels->all[i].hole_position, sizeof(Vector2));
+        ifstream.read((char*) &levels->all[i].shots, sizeof(uint8_t));
+        for (int y = 0; y < levels->grid_height; y++)
         {
-            ifstream.read((char*) &level->grid[x][y], sizeof(uint8_t));
+            for (int x = 0; x < levels->grid_width; x++)
+            {
+                ifstream.read((char*) &levels->all[i].grid[x][y], sizeof(uint8_t));
+            }
         }
     }
     ifstream.close();
 }
-#pragma endregion
+
+void LoadLevels(char *filename, Levels *levels)
+{
+    Load(filename, levels);
+    ball.scale = (float)levels->grid_size / ball.GetSourceRect().width;
+    hole.scale = (float)levels->grid_size / hole.GetSourceRect().width;
+    bumper.scale = (float)levels->grid_size / bumper.GetSourceRect().width;
+}
+
+void AddLevel(Levels *levels)
+{
+    Levels new_levels = Levels();
+    new_levels.grid_width = levels->grid_width;
+    new_levels.grid_height = levels->grid_height;
+    new_levels.grid_size = levels->grid_size;
+    new_levels.count = levels->count + 1;
+
+    new_levels.all = new Level[new_levels.count];
+    for (int i = 0; i < levels->count; i++)
+    {
+        new_levels.all[i] = levels->all[i];
+    }
+    new_levels.all[new_levels.count - 1].grid = CreateGrid(new_levels.grid_width, new_levels.grid_height);
+    new_levels.all[new_levels.count - 1].ball_position = {floor(SCREEN_WIDTH * (1.0f / 10.0f) / new_levels.grid_size + 0.5f) * new_levels.grid_size, floor(SCREEN_HEIGHT / 2 / new_levels.grid_size + 0.5f) * new_levels.grid_size};
+    new_levels.all[new_levels.count - 1].hole_position = {floor(SCREEN_WIDTH * (9.0f / 10.0f) / new_levels.grid_size + 0.5f) * new_levels.grid_size, floor(SCREEN_HEIGHT / 2 / new_levels.grid_size + 0.5f) * new_levels.grid_size};
+    new_levels.all[new_levels.count - 1].shots = 1;
+
+    delete[] levels->all;
+    levels->all = new_levels.all;
+    levels->count = new_levels.count;
+}
 
 int main()
 {
@@ -251,31 +352,35 @@ int main()
     // Set the exit key to none
     SetExitKey(KEY_NULL); // default is ESC
 
-    level = Level();
-    level.grid_size = 36;
-    level.grid_width = (int)ceil(SCREEN_WIDTH / level.grid_size) + 1;
-    level.grid_height = (int)ceil(SCREEN_HEIGHT / level.grid_size) + 1;
-    level.grid = CreateGrid(level.grid_width, level.grid_height);
-    for (int y = 0; y < level.grid_height; y++)
-        for (int x = 0; x < level.grid_width; x++)
-            level.grid[x][y] = 0;
-    if (level.shots < 1)
-        level.shots == 1;
+    levels = Levels();
+    int current_level = 0;
     Color grid_color = GRAY;
     int grid_paint_value = 1;
 
-    ball = LoadSprite("resources/ball.png", {0.5, 0.5}, {floor(SCREEN_WIDTH * (1.0f / 10.0f) / level.grid_size + 0.5f) * level.grid_size, floor(SCREEN_HEIGHT / 2 / level.grid_size + 0.5f) * level.grid_size}, (float)level.grid_size / 128);
-    hole = LoadSprite("resources/hole.png", {0.5, 0.5}, {floor(SCREEN_WIDTH * (9.0f / 10.0f) / level.grid_size + 0.5f) * level.grid_size, floor(SCREEN_HEIGHT / 2 / level.grid_size + 0.5f) * level.grid_size}, (float)level.grid_size / 128);
-    bumper = LoadSprite("resources/bumper.png", {0, 0}, {0, 0}, (float)level.grid_size / 128);
+    ball = LoadSprite("resources/ball.png", {0.5, 0.5}, {0, 0}, 2);
+    hole = LoadSprite("resources/hole.png", {0.5, 0.5}, {0, 0}, 2);
+    bumper = LoadSprite("resources/bumper.png", {0, 0}, {0, 0}, 2);
 
     bool dragging_ball = false;
     bool dragging_hole = false;
 
+    /* Stage 0 */
+    Rectangle loadfile_rect = {5, 5, 59, 20};
+    Rectangle save_rect = {5, 27, 59, 20};
+    Rectangle scrollPanelRect = {loadfile_rect.width + 10, 5, (float)GetScreenWidth() - (loadfile_rect.width + 15), (float)GetScreenHeight() - 8};
+    GuiWindowFileDialogState fileDialogState = InitGuiWindowFileDialog(GetWorkingDirectory(), 440, 310, "Open File");
+    char filename[512] = "level.dat";
+    char *fileload_errmsg = { 0 };
+    LoadLevels(filename, &levels);
+    int scrollPanelHeight = 0;
+    int ls_level_width = 36 * 5;
+    int ls_level_height = 20 * 5;
+    int ls_levels_per_line = 3;
+
+    /* Stage 1 */
     int bar_x = 0;
-    Rectangle save_rect = {10, 10, 90, 40};
-    bar_x += save_rect.width + 10;
-    Rectangle load_rect = {bar_x + 10.0f, 10, 90, 40};
-    bar_x += load_rect.width + 10;
+    Rectangle back_rect = {10, 10, 90, 40};
+    bar_x += back_rect.width + 10;
     Rectangle shots_rect = {bar_x + 10.0f, 10, (float)MeasureText("Shots:", 30) + 125, 40};
     Rectangle shots_less = {bar_x + (float)MeasureText("Shots:", 30) + 20, 15, 30, 30};
     Rectangle shots_num = {bar_x + (float)MeasureText("Shots:", 30) + 55, 15, 40, 30};
@@ -285,149 +390,252 @@ int main()
     bar_x += paint_options_rect.width + 10;
 
     const int ui_rects_count = 4;
-    Rectangle ui_rects[ui_rects_count] = {save_rect, load_rect, shots_rect, paint_options_rect};
+    Rectangle ui_rects[ui_rects_count] = {back_rect, shots_rect, paint_options_rect};
+
+    RenderTexture2D frame = LoadRenderTexture(VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
+
+    Rectangle scrollPanelView;
+    Vector2 scrollPanelScroll = {0, 0};
 
     // Main Loop
     while (!WindowShouldClose())
     {
-        BeginDrawing();
+        if (stage == 0 && windowScale != 2)
+        {
+            windowScale = 2;
+            UnloadRenderTexture(frame);
+            frame = LoadRenderTexture(VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
+        }
+        else if (stage == 1 && windowScale != 1)
+        {
+            windowScale = 1;
+            UnloadRenderTexture(frame);
+            frame = LoadRenderTexture(VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
+        }
+
+        BeginTextureMode(frame);
         ClearBackground(DARKGREEN);
         {
-            Vector2 mouse_pos = GetMousePosition();
-            bool is_mouse_on_ui = false;
-            for (int i = 0; i < ui_rects_count; i++)
-                if (CheckCollisionPointRec(mouse_pos, ui_rects[i]))
-                    is_mouse_on_ui = true;
-
-            if (IsMouseButtonPressed(0) && ball.GetCollisionPoint(mouse_pos))
-                dragging_ball = true;
-            else if (IsMouseButtonReleased(0))
-                dragging_ball = false;
-            if (dragging_ball)
+            if (stage == 0)
             {
-                ball.position.x = floor(mouse_pos.x / level.grid_size + 0.5f) * level.grid_size;
-                ball.position.y = floor(mouse_pos.y / level.grid_size + 0.5f) * level.grid_size;
-            }
+                ClearBackground(GetColor(GuiGetStyle(DEFAULT, BACKGROUND_COLOR)));
 
-            if (IsMouseButtonPressed(0) && hole.GetCollisionPoint(mouse_pos))
-                dragging_hole = true;
-            else if (IsMouseButtonReleased(0))
-                dragging_hole = false;
-            if (dragging_hole)
-            {
-                hole.position.x = floor(mouse_pos.x / level.grid_size + 0.5f) * level.grid_size;
-                hole.position.y = floor(mouse_pos.y / level.grid_size + 0.5f) * level.grid_size;
-            }
-
-            Vector2 ball_grid_pos = {floor(ball.position.x / level.grid_size), floor(ball.position.y / level.grid_size)};
-            Vector2 hole_grid_pos = {floor(hole.position.x / level.grid_size), floor(hole.position.y / level.grid_size)};
-
-            for (int y = 0; y < level.grid_height; y++)
-            {
-                for (int x = 0; x < level.grid_width; x++)
+                if (fileDialogState.SelectFilePressed)
                 {
+                    if (IsFileExtension(fileDialogState.fileNameText, ".dat"))
+                    {
+                        strcpy(filename, TextFormat("%s" PATH_SEPERATOR "%s", fileDialogState.dirPathText, fileDialogState.fileNameText));
+                        fileload_errmsg = { 0 };
+                        LoadLevels(filename, &levels);
+                    }
+                    else
+                    {
+                        fileload_errmsg = (char*)"Please select a .dat file";
+                    }
+
+                    fileDialogState.SelectFilePressed = false;
+                }
+
+                if (fileDialogState.windowActive)
+                    GuiLock();
+                if (GuiButton(loadfile_rect, GuiIconText(ICON_FILE_OPEN, "Load")))
+                {
+                    fileDialogState.windowActive = true;
+                    fileDialogState.windowBounds.x = (GetScreenWidth() - fileDialogState.windowBounds.width) / 2;
+                    fileDialogState.windowBounds.y = (GetScreenHeight() - fileDialogState.windowBounds.height) / 2;
+                }
+                if (GuiButton(save_rect, GuiIconText(ICON_FILE_SAVE, "Save")))
+                {
+                    Save(filename, &levels);
+                }
+
+                scrollPanelHeight = ceil((levels.count + 3) / 3) * (ls_level_height + 6) + 3;
+                GuiScrollPanel(scrollPanelRect, filename, {loadfile_rect.width + 10, 5, scrollPanelRect.width - 15, (float)max(scrollPanelHeight, (int)scrollPanelRect.height - 27)}, &scrollPanelScroll, &scrollPanelView);
+                BeginScissorMode(scrollPanelView.x + 1, scrollPanelView.y + 1, scrollPanelView.width - 2, scrollPanelView.height - 2);
+                {
+                    DrawText(fileload_errmsg, scrollPanelView.x + (scrollPanelView.width - 2) / 2, scrollPanelView.y + (scrollPanelView.height - 2) / 2 - 10, 20, 0.5, RED);
+
+                    for (int i = 0; i < levels.count; i++)
+                    {
+                        Rectangle lvl_rect = {scrollPanelView.x + scrollPanelScroll.x + 4 + (int)floor(i % ls_levels_per_line) * (ls_level_width + 6), scrollPanelView.y + scrollPanelScroll.y + 4 + (int)floor(i / ls_levels_per_line) * (ls_level_height + 6), (float)ls_level_width, (float)ls_level_height};
+                        DrawRectangle(lvl_rect.x, lvl_rect.y, lvl_rect.width, lvl_rect.height, DARKGREEN);
+                        Color outline_color = GetColor(GuiGetStyle(DEFAULT, BORDER_COLOR_NORMAL));
+                        if (!guiLocked && CheckCollisionPointRec(GetMousePosition(), lvl_rect) && CheckCollisionPointRec(GetMousePosition(), scrollPanelView))
+                        {
+                            if (IsMouseButtonDown(0))
+                                outline_color = GetColor(GuiGetStyle(DEFAULT, BORDER_COLOR_PRESSED));
+                            else
+                                outline_color = GetColor(GuiGetStyle(DEFAULT, BORDER_COLOR_FOCUSED));
+                        }
+                        DrawRectangleLinesEx({lvl_rect.x - 2, lvl_rect.y -2, lvl_rect.width + 4, lvl_rect.height + 4}, 2, outline_color);
+                        int grid_size = lvl_rect.width / levels.grid_width;
+                        for (int y = 0; y < levels.grid_height; y++)
+                        {
+                            for (int x = 0; x < levels.grid_width; x++)
+                            {
+                                if (levels.all[i].grid[x][y] == 1)
+                                    DrawRectangle(lvl_rect.x + x * grid_size, lvl_rect.y + y * grid_size, grid_size, grid_size, DARKGRAY);
+                                else if (levels.all[i].grid[x][y] == 2)
+                                    DrawRectangle(lvl_rect.x + x * grid_size, lvl_rect.y + y * grid_size, grid_size, grid_size, {0, 255, 0, 255});
+                            }
+                        }
+                        Vector2 ball_pos = {lvl_rect.x + (levels.all[i].ball_position.x / (levels.grid_width * levels.grid_size)) * lvl_rect.width, lvl_rect.y + (levels.all[i].ball_position.y / (levels.grid_height * levels.grid_size)) * lvl_rect.height};
+                        DrawCircle(ball_pos.x, ball_pos.y, ceil(grid_size / 2), WHITE);
+                        Vector2 hole_pos = {lvl_rect.x + (levels.all[i].hole_position.x / (levels.grid_width * levels.grid_size)) * lvl_rect.width, lvl_rect.y + (levels.all[i].hole_position.y / (levels.grid_height * levels.grid_size)) * lvl_rect.height};
+                        DrawCircle(hole_pos.x, hole_pos.y, ceil(grid_size / 2), BLACK);
+
+                        if (!guiLocked && IsMouseButtonReleased(0) && CheckCollisionPointRec(GetMousePosition(), lvl_rect) && CheckCollisionPointRec(GetMousePosition(), scrollPanelView))
+                        {
+                            stage = 1;
+                            current_level = i;
+                            ball.position = levels.all[i].ball_position;
+                            hole.position = levels.all[i].hole_position;
+                        }
+                    }
+                    Rectangle rect = {scrollPanelView.x + scrollPanelScroll.x + 2 + (int)floor(levels.count % ls_levels_per_line) * (ls_level_width + 6), scrollPanelView.y + scrollPanelScroll.y + 2 + (int)floor(levels.count / ls_levels_per_line) * (ls_level_height + 6), (float)ls_level_width + 4, (float)ls_level_height + 4};
+                    if (GuiButton(rect, "+"))
+                    {
+                        AddLevel(&levels);
+                    }
+                }
+                EndScissorMode();
+
+                GuiUnlock();
+                GuiWindowFileDialog(&fileDialogState);
+            }
+            else if (stage == 1)
+            {
+                Vector2 mouse_pos = GetMousePosition();
+                bool is_mouse_on_ui = false;
+                for (int i = 0; i < ui_rects_count; i++)
+                    if (CheckCollisionPointRec(mouse_pos, ui_rects[i]))
+                        is_mouse_on_ui = true;
+
+                if (IsMouseButtonPressed(0) && ball.GetCollisionPoint(mouse_pos))
+                    dragging_ball = true;
+                else if (IsMouseButtonReleased(0))
+                    dragging_ball = false;
+                if (dragging_ball)
+                {
+                    ball.position.x = floor(mouse_pos.x / levels.grid_size + 0.5f) * levels.grid_size;
+                    ball.position.y = floor(mouse_pos.y / levels.grid_size + 0.5f) * levels.grid_size;
+                }
+
+                if (IsMouseButtonPressed(0) && hole.GetCollisionPoint(mouse_pos))
+                    dragging_hole = true;
+                else if (IsMouseButtonReleased(0))
+                    dragging_hole = false;
+                if (dragging_hole)
+                {
+                    hole.position.x = floor(mouse_pos.x / levels.grid_size + 0.5f) * levels.grid_size;
+                    hole.position.y = floor(mouse_pos.y / levels.grid_size + 0.5f) * levels.grid_size;
+                }
+
+                Vector2 ball_grid_pos = {floor(ball.position.x / levels.grid_size), floor(ball.position.y / levels.grid_size)};
+                Vector2 hole_grid_pos = {floor(hole.position.x / levels.grid_size), floor(hole.position.y / levels.grid_size)};
+
+                for (int y = 0; y < levels.grid_height; y++)
+                {
+                    for (int x = 0; x < levels.grid_width; x++)
+                    {
+                        bool coord_is_in_ball = (ball_grid_pos.x == x || ball_grid_pos.x - 1 == x) && (ball_grid_pos.y == y || ball_grid_pos.y - 1 == y);
+                        bool coord_is_in_hole = (hole_grid_pos.x == x || hole_grid_pos.x - 1 == x) && (hole_grid_pos.y == y || hole_grid_pos.y - 1 == y);
+                        if (!coord_is_in_ball && !coord_is_in_hole)
+                        {
+                            if (levels.all[current_level].grid[x][y] == 1)
+                                DrawRectangle(x * levels.grid_size, y * levels.grid_size, levels.grid_size, levels.grid_size, DARKGRAY);
+                            else if (levels.all[current_level].grid[x][y] == 2)
+                                DrawBumper(x, y);
+                        }
+                    }
+                }
+
+                if (!is_mouse_on_ui && !dragging_ball && !dragging_hole && mouse_pos.x >= 0 && mouse_pos.x < SCREEN_WIDTH && mouse_pos.y >= 0 && mouse_pos.y < SCREEN_HEIGHT)
+                {
+                    int x = floor(mouse_pos.x / levels.grid_size);
+                    int y = floor(mouse_pos.y / levels.grid_size);
                     bool coord_is_in_ball = (ball_grid_pos.x == x || ball_grid_pos.x - 1 == x) && (ball_grid_pos.y == y || ball_grid_pos.y - 1 == y);
                     bool coord_is_in_hole = (hole_grid_pos.x == x || hole_grid_pos.x - 1 == x) && (hole_grid_pos.y == y || hole_grid_pos.y - 1 == y);
                     if (!coord_is_in_ball && !coord_is_in_hole)
                     {
-                        if (level.grid[x][y] == 1)
-                            DrawRectangle(x * level.grid_size, y * level.grid_size, level.grid_size, level.grid_size, DARKGRAY);
-                        else if (level.grid[x][y] == 2)
+                        if (IsMouseButtonDown(0))
+                            levels.all[current_level].grid[x][y] = grid_paint_value;
+                        if (grid_paint_value == 0)
+                            DrawRectangle(x * levels.grid_size, y * levels.grid_size, levels.grid_size, levels.grid_size, DARKGREEN);
+                        else if (grid_paint_value == 1)
+                            DrawRectangle(x * levels.grid_size, y * levels.grid_size, levels.grid_size, levels.grid_size, DARKGRAY);
+                        else if (grid_paint_value == 2)
                             DrawBumper(x, y);
                     }
                 }
-            }
 
-            if (!is_mouse_on_ui && !dragging_ball && !dragging_hole && mouse_pos.x >= 0 && mouse_pos.x < SCREEN_WIDTH && mouse_pos.y >= 0 && mouse_pos.y < SCREEN_HEIGHT)
-            {
-                int x = floor(mouse_pos.x / level.grid_size);
-                int y = floor(mouse_pos.y / level.grid_size);
-                bool coord_is_in_ball = (ball_grid_pos.x == x || ball_grid_pos.x - 1 == x) && (ball_grid_pos.y == y || ball_grid_pos.y - 1 == y);
-                bool coord_is_in_hole = (hole_grid_pos.x == x || hole_grid_pos.x - 1 == x) && (hole_grid_pos.y == y || hole_grid_pos.y - 1 == y);
-                if (!coord_is_in_ball && !coord_is_in_hole)
+                for (int y = 0; y < SCREEN_HEIGHT; y += levels.grid_size)
                 {
-                    if (IsMouseButtonDown(0))
-                        level.grid[x][y] = grid_paint_value;
-                    if (grid_paint_value == 0)
-                        DrawRectangle(x * level.grid_size, y * level.grid_size, level.grid_size, level.grid_size, DARKGREEN);
-                    else if (grid_paint_value == 1)
-                        DrawRectangle(x * level.grid_size, y * level.grid_size, level.grid_size, level.grid_size, DARKGRAY);
-                    else if (grid_paint_value == 2)
-                        DrawBumper(x, y);
+                    DrawLine(0, y, SCREEN_WIDTH, y, grid_color);
                 }
-            }
-
-            for (int y = 0; y < SCREEN_HEIGHT; y += level.grid_size)
-            {
-                DrawLine(0, y, SCREEN_WIDTH, y, grid_color);
-            }
-            for(int x = 0; x < SCREEN_WIDTH; x += level.grid_size)
-            {
-                DrawLine(x, 0, x, SCREEN_HEIGHT, grid_color);
-            }
-
-            hole.Draw();
-            ball.Draw();
-
-            if (Button(save_rect, "Save", 30, GRAY, BLUE, RED))
-            {
-                Save((char*)"level.dat", &level);
-
-                std::string filename = "level.dat";
-                std::vector<uint8_t> digest;
-
-                if (sha256File(filename, digest)) {
-                    std::cout << "SHA-256 hash: " << toHexString(digest) << std::endl;
-                } else {
-                    std::cerr << "Failed to compute hash.\n";
+                for(int x = 0; x < SCREEN_WIDTH; x += levels.grid_size)
+                {
+                    DrawLine(x, 0, x, SCREEN_HEIGHT, grid_color);
                 }
-            }
 
-            if (Button(load_rect, "Load", 30, GRAY, BLUE, RED))
-            {
-                Load((char*)"level.dat", &level);
-                ball.position = level.ball_position;
-                hole.position = level.hole_position;
-            }
+                hole.Draw();
+                ball.Draw();
 
-            DrawRectangle(shots_rect.x, shots_rect.y, shots_rect.width, shots_rect.height, DARKGRAY);
-            DrawText("Shots:", shots_rect.x + 5, shots_rect.y + 7, 30, RAYWHITE);
-            if (Button(shots_less, "-", 30, GRAY, BLUE, DARKBLUE))
-            {
-                level.shots--;
-            }
-            DrawRectangle(shots_num.x, shots_num.y, shots_num.width, shots_num.height, GRAY);
-            char shots_text[25];
-            sprintf(shots_text, "%d", level.shots);
-            DrawText(shots_text, shots_num.x + shots_num.width / 2, shots_num.y + 1, 30, 0.5f, RAYWHITE);
-            if (Button(shots_more, "+", 30, GRAY, BLUE, DARKBLUE))
-            {
-                level.shots++;
-            }
+                if (Button(back_rect, "Back", 30, GRAY, BLUE, RED))
+                {
+                   stage = 0;
+                }
+                DrawRectangle(shots_rect.x, shots_rect.y, shots_rect.width, shots_rect.height, DARKGRAY);
+                DrawText("Shots:", shots_rect.x + 5, shots_rect.y + 7, 30, RAYWHITE);
+                if (Button(shots_less, "-", 30, GRAY, BLUE, DARKBLUE))
+                {
+                    levels.all[current_level].shots--;
+                }
+                DrawRectangle(shots_num.x, shots_num.y, shots_num.width, shots_num.height, GRAY);
+                char shots_text[25];
+                sprintf(shots_text, "%d", levels.all[current_level].shots);
+                DrawText(shots_text, shots_num.x + shots_num.width / 2, shots_num.y + 1, 30, 0.5f, RAYWHITE);
+                if (Button(shots_more, "+", 30, GRAY, BLUE, DARKBLUE))
+                {
+                    levels.all[current_level].shots++;
+                }
 
-            DrawRectangle(paint_options_rect.x, paint_options_rect.y, paint_options_rect.width, paint_options_rect.height, DARKGRAY);
-            DrawText("Paint:", paint_options_rect.x + 10, paint_options_rect.y + 7, 30, RAYWHITE);
-            int text_width = MeasureText("Paint:", 30);
-            if (Button({paint_options_rect.x + text_width + 20, paint_options_rect.y + 5, (float)MeasureText("Clear", 30) + 10, 30}, "Clear", 30, GRAY, BLUE, RED))
-            {
-                grid_paint_value = 0;
-            }
-            else if (Button({paint_options_rect.x + text_width + (float)MeasureText("Clear", 30) + 35, paint_options_rect.y + 5, (float)MeasureText("Block", 30) + 10, 30}, "Block", 30, GRAY, BLUE, RED))
-            {
-                grid_paint_value = 1;
-            }
-            else if (Button({paint_options_rect.x + text_width + (float)MeasureText("Clear", 30) + (float)MeasureText("Block", 30) + 50, paint_options_rect.y + 5, (float)MeasureText("Bumper", 30) + 10, 30}, "Bumper", 30, GRAY, BLUE, RED))
-            {
-                grid_paint_value = 2;
-            }
+                DrawRectangle(paint_options_rect.x, paint_options_rect.y, paint_options_rect.width, paint_options_rect.height, DARKGRAY);
+                DrawText("Paint:", paint_options_rect.x + 10, paint_options_rect.y + 7, 30, RAYWHITE);
+                int text_width = MeasureText("Paint:", 30);
+                if (Button({paint_options_rect.x + text_width + 20, paint_options_rect.y + 5, (float)MeasureText("Clear", 30) + 10, 30}, "Clear", 30, GRAY, BLUE, RED))
+                {
+                    grid_paint_value = 0;
+                }
+                else if (Button({paint_options_rect.x + text_width + (float)MeasureText("Clear", 30) + 35, paint_options_rect.y + 5, (float)MeasureText("Block", 30) + 10, 30}, "Block", 30, GRAY, BLUE, RED))
+                {
+                    grid_paint_value = 1;
+                }
+                else if (Button({paint_options_rect.x + text_width + (float)MeasureText("Clear", 30) + (float)MeasureText("Block", 30) + 50, paint_options_rect.y + 5, (float)MeasureText("Bumper", 30) + 10, 30}, "Bumper", 30, GRAY, BLUE, RED))
+                {
+                    grid_paint_value = 2;
+                }
 
-            level.ball_position = ball.position;
-            level.hole_position = hole.position;
+                levels.all[current_level].ball_position = ball.position;
+                levels.all[current_level].hole_position = hole.position;
+            }
+        }
+        EndTextureMode();
+
+        BeginDrawing();
+        ClearBackground(BLACK);
+        {
+            DrawTexturePro(
+                frame.texture, 
+                (Rectangle){0, 0, (float)frame.texture.width, (float)-frame.texture.height},
+                (Rectangle){0, 0, (float)SCREEN_WIDTH, (float)SCREEN_HEIGHT},
+                (Vector2){0, 0}, 0, WHITE
+            );
         }
         EndDrawing();
     }
 
-    FreeGrid(level.grid, level.grid_width);
+    UnloadRenderTexture(frame);
     ball.Delete();
     hole.Delete();
     CloseWindow();

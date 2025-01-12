@@ -39,18 +39,23 @@ struct Level {
     Vector2 ball_position;
     Vector2 hole_position;
     uint8_t shots;
+    uint8_t **grid;
+};
+struct Levels {
     uint8_t grid_size;
     uint8_t grid_width;
     uint8_t grid_height;
-    uint8_t **grid;
+    uint8_t count;
+    Level *all;
 };
+
 struct Bumper
 {
     int grid_x;
     int grid_y;
     double remaining_seconds;
 };
-Level level;
+Levels levels;
 int num_rects = -1;
 Rectangle *rects;
 int num_bumpers = -1;
@@ -59,10 +64,10 @@ Sprite bumper_up;
 Sprite bumper_down;
 int shots_left = 0;
 
-int level_num = 1;
+int level_num = 0;
 uint8_t highest_level = 0;
-const int levels_count = 23;
-const std::string levels_hash[levels_count] = {"a7bbf0cb64e0e768dd37ce423e1d54348f06d5081295c8d5ed4526ce1b8ae309",
+const std::string levels_hash = "8f1eaa224679338e0bb329d09ca8bd4037c26c5638aad4490db6b903a79f4896";
+                                            /*{"a7bbf0cb64e0e768dd37ce423e1d54348f06d5081295c8d5ed4526ce1b8ae309",
                                                "0e4dbca2921c7149816502c993a9d49d4973206b7266a6c4cae8512014035c6a",
                                                "95608a2fa227361dcea10bffc0817ffece385ccf1bfe968822e56706b6509235",
                                                "f197625df2ba1d8fe0662e7465702722942175d831a7bd1a0129e1c941796120",
@@ -84,7 +89,7 @@ const std::string levels_hash[levels_count] = {"a7bbf0cb64e0e768dd37ce423e1d5434
                                                "bc931d518ad27d498af1bd6f40c9b2056f0327b5954be40d2baa8d466111edd7",
                                                "9b432acb77ea5a64ea61152b6e40d0ea6b6521ba74933b2669d5757d0c13ccd0",
                                                "2fd6c58451a6f5dcae640bd6714eeb4fae099983d3b1a175be8be6c42ff4188b",
-                                               "505c368f2ddd10ca60d105e9389dcbd4a5f3d7caeb5b5c3de21715226c3ff8b1"};
+                                               "505c368f2ddd10ca60d105e9389dcbd4a5f3d7caeb5b5c3de21715226c3ff8b1"};*/
 int lvlslc_page = 0;
 int game_stage = 0; // 0 = Main Menu, 1 = Playing, 2 = Pause menu; 3 = All Levels Completed; 4 = Level Selection
 
@@ -247,26 +252,49 @@ void FreeGrid(uint8_t **grid, int width) {
     delete[] grid;
 }
 
-int LoadLevelData(const char *filename, Level *level)
+Level *CreateLevels(int count, int grid_width, int grid_height)
 {
-    bool was_loaded = level->grid_width != 0;
+    Level *levels = new Level[count];
+    for (int i = 0; i < count; i++)
+    {
+        levels[i] = Level();
+        levels[i].grid = CreateGrid(grid_width, grid_height);
+    }
+    return levels;
+}
+
+void FreeLevels(Level *levels, int count, int grid_width)
+{
+    for (int i = 0; i < count; i++)
+    {
+        FreeGrid(levels[i].grid, grid_width);
+    }
+    delete[] levels;
+}
+
+int LoadLevels(const char *filename, Levels *levels)
+{
     ifstream ifstream(filename, ios::in | ios::binary);
     if (!ifstream.is_open())
         return 1;
-    ifstream.read((char*) &level->ball_position, sizeof(Vector2));
-    ifstream.read((char*) &level->hole_position, sizeof(Vector2));
-    ifstream.read((char*) &level->shots, sizeof(uint8_t));
-    ifstream.read((char*) &level->grid_size, sizeof(uint8_t));
-    ifstream.read((char*) &level->grid_width, sizeof(uint8_t));
-    ifstream.read((char*) &level->grid_height, sizeof(uint8_t)); 
-    if (was_loaded)
-        FreeGrid(level->grid, level->grid_width);
-    level->grid = CreateGrid(level->grid_width, level->grid_height);
-    for (int y = 0; y < level->grid_height; y++)
+    ifstream.read((char*) &levels->grid_size, sizeof(uint8_t));
+    ifstream.read((char*) &levels->grid_width, sizeof(uint8_t));
+    ifstream.read((char*) &levels->grid_height, sizeof(uint8_t));
+    if (levels->count > 0)
+        FreeLevels(levels->all, levels->count, levels->grid_width);
+    ifstream.read((char*) &levels->count, sizeof(uint8_t));
+    levels->all = CreateLevels(levels->count, levels->grid_width, levels->grid_height);
+    for (int i = 0; i < levels->count; i++)
     {
-        for (int x = 0; x < level->grid_width; x++)
+        ifstream.read((char*) &levels->all[i].ball_position, sizeof(Vector2));
+        ifstream.read((char*) &levels->all[i].hole_position, sizeof(Vector2));
+        ifstream.read((char*) &levels->all[i].shots, sizeof(uint8_t));
+        for (int y = 0; y < levels->grid_height; y++)
         {
-            ifstream.read((char*) &level->grid[x][y], sizeof(uint8_t));
+            for (int x = 0; x < levels->grid_width; x++)
+            {
+                ifstream.read((char*) &levels->all[i].grid[x][y], sizeof(uint8_t));
+            }
         }
     }
     ifstream.close();
@@ -290,39 +318,31 @@ void FreeLevel()
 
 int LoadLevel(int level_num)
 {
-    char level_filename[25];
-    sprintf(level_filename, "resources/l%d.dat", level_num);
-    if (LoadLevelData(level_filename, &level))
-    {
-        cerr << "ERROR: LEVEL: Failed to load level: " << level_filename;
-        return 1;
-    }
-
     FreeLevel();
     num_rects = 0;
-    for (int y = 0; y < level.grid_height; y++)
-        for (int x = 0; x < level.grid_width; x++)
-            if (level.grid[x][y] == 1)
+    for (int y = 0; y < levels.grid_height; y++)
+        for (int x = 0; x < levels.grid_width; x++)
+            if (levels.all[level_num].grid[x][y] == 1)
                 num_rects++;
     rects = new Rectangle[num_rects];
     int i = 0;
-    for (int y = 0; y < level.grid_height; y++)
-        for (int x = 0; x < level.grid_width; x++)
-            if (level.grid[x][y] == 1)
-                rects[i++] = {(float)x * level.grid_size, (float)y * level.grid_size, (float)level.grid_size, (float)level.grid_size};
+    for (int y = 0; y < levels.grid_height; y++)
+        for (int x = 0; x < levels.grid_width; x++)
+            if (levels.all[level_num].grid[x][y] == 1)
+                rects[i++] = {(float)x * levels.grid_size, (float)y * levels.grid_size, (float)levels.grid_size, (float)levels.grid_size};
 
     num_bumpers = 0;
-    for (int y = 0; y < level.grid_height; y++)
-        for (int x = 0; x < level.grid_width; x++)
-            if (level.grid[x][y] == 2)
+    for (int y = 0; y < levels.grid_height; y++)
+        for (int x = 0; x < levels.grid_width; x++)
+            if (levels.all[level_num].grid[x][y] == 2)
                 num_bumpers++;
     bumpers = new Bumper[num_bumpers]();
     i = 0;
-    for (int y = 0; y < level.grid_height; y++)
+    for (int y = 0; y < levels.grid_height; y++)
     {
-        for (int x = 0; x < level.grid_width; x++)
+        for (int x = 0; x < levels.grid_width; x++)
         {
-            if (level.grid[x][y] == 2)
+            if (levels.all[level_num].grid[x][y] == 2)
             {
                 bumpers[i].grid_x = x;
                 bumpers[i].grid_y = y;
@@ -331,14 +351,14 @@ int LoadLevel(int level_num)
             }
         }
     }
-    ball.position = level.ball_position;
-    hole.position = level.hole_position;
-    shots_left = (int)level.shots;
+    ball.position = levels.all[level_num].ball_position;
+    hole.position = levels.all[level_num].hole_position;
+    shots_left = (int)levels.all[level_num].shots;
     ball_velocity = {0, 0};
     return 0;
 }
 
-void DrawLevel()
+void DrawLevel(int level_num)
 {
     hole.Draw();
     ball.Draw();
@@ -349,12 +369,12 @@ void DrawLevel()
     {
         if (bumpers[i].remaining_seconds <= 0)
         {
-            bumper_up.position = {(float)bumpers[i].grid_x * level.grid_size, (float)bumpers[i].grid_y * level.grid_size};
+            bumper_up.position = {(float)bumpers[i].grid_x * levels.grid_size, (float)bumpers[i].grid_y * levels.grid_size};
             bumper_up.Draw();
         }
         else
         {
-            bumper_down.position = {(float)bumpers[i].grid_x * level.grid_size, (float)bumpers[i].grid_y * level.grid_size};
+            bumper_down.position = {(float)bumpers[i].grid_x * levels.grid_size, (float)bumpers[i].grid_y * levels.grid_size};
             bumper_down.Draw();
             bumpers[i].remaining_seconds -= GetFrameTime();
         }
@@ -401,30 +421,29 @@ int main()
     bumper_down = LoadSprite("resources/bumper_down.png", {0, 0}, {0, 0}, 1);
 
     LoadPlayerData();
-    LoadLevel(level_num);
-    cout << level.grid_width << endl;
-
-#ifndef DONT_CHECK_HASH
-    for (int i = 0; i < levels_count; i++)
+    const char *levels_filename = "resources/l.dat";
+    if (LoadLevels(levels_filename, &levels) > 0)
     {
-        char filename[25];
-        sprintf(filename, "resources/l%d.dat", i + 1);
-        std::vector<uint8_t> digest;
-        if (sha256File(filename, digest)) {
-            std::string hash = toHexString(digest);
-            if (hash == levels_hash[i])
-            {
-                std::cout << "INFO: HASH: Matches [Level " << i + 1 << "]: " << hash << std::endl;
-            }
-            else
-            {
-                std::cerr << "ERROR: HASH: Does not mach [level " << i + 1 << "]: " << hash << std::endl;
-                exit = true;
-            }
-        } else {
-            std::cerr << "ERROR: HASH: Failed to compute hash.\n";
+        cout << "ERROR: File \"" << levels_filename << "\" not found!" << endl;
+        return 1;
+    }
+    LoadLevel(level_num);
+#ifndef DONT_CHECK_HASH
+    std::vector<uint8_t> digest;
+    if (sha256File(levels_filename, digest)) {
+        std::string hash = toHexString(digest);
+        if (hash == levels_hash)
+        {
+            std::cout << "INFO: HASH: Matches [Levels]: " << hash << std::endl;
+        }
+        else
+        {
+            std::cerr << "ERROR: HASH: Does not mach [levels]: " << hash << std::endl;
             exit = true;
         }
+    } else {
+        std::cerr << "ERROR: HASH: Failed to compute hash.\n";
+        exit = true;
     }
 #endif
 
@@ -457,7 +476,7 @@ int main()
 
             if (game_stage == 0) // Main Menu
             {
-                DrawLevel();
+                DrawLevel(level_num);
 
                 DrawText("GOLF!", screenWidth / 2, 100, 60, 0.5, RAYWHITE);
 
@@ -512,7 +531,7 @@ int main()
                         collision_x = true;
                 for (int i = 0; i < num_bumpers; i++)
                 {
-                    Rectangle bumper_rect = {(float)bumpers[i].grid_x * level.grid_size, (float)bumpers[i].grid_y * level.grid_size, (float)level.grid_size, (float)level.grid_size};
+                    Rectangle bumper_rect = {(float)bumpers[i].grid_x * levels.grid_size, (float)bumpers[i].grid_y * levels.grid_size, (float)levels.grid_size, (float)levels.grid_size};
                     if (ball.GetCollisionRect(bumper_rect, {0, 0}, 0))
                     {
                         collision_x = true;
@@ -536,7 +555,7 @@ int main()
                         collision_y = true;
                 for (int i = 0; i < num_bumpers; i++)
                 {
-                    Rectangle bumper_rect = {(float)bumpers[i].grid_x * level.grid_size, (float)bumpers[i].grid_y * level.grid_size, (float)level.grid_size, (float)level.grid_size};
+                    Rectangle bumper_rect = {(float)bumpers[i].grid_x * levels.grid_size, (float)bumpers[i].grid_y * levels.grid_size, (float)levels.grid_size, (float)levels.grid_size};
                     if (ball.GetCollisionRect(bumper_rect, {0, 0}, 0))
                     {
                         collision_y = true;
@@ -565,9 +584,9 @@ int main()
                     if (level_num > highest_level)
                         highest_level = level_num;
                     level_num++;
-                    if (level_num > levels_count)
+                    if (level_num >= levels.count)
                     {
-                        level_num = 1;
+                        level_num = 0;
                         game_stage = 3;
                     }
                     LoadLevel(level_num);
@@ -577,7 +596,7 @@ int main()
                     LoadLevel(level_num);
                 }
 
-                DrawLevel();
+                DrawLevel(level_num);
 
                 char text[25];
                 sprintf(text, "Level: %d", level_num);
@@ -593,7 +612,7 @@ int main()
             }
             else if (game_stage == 2) // Pause Menu
             {
-                DrawLevel();
+                DrawLevel(level_num);
                 char text[25];
                 sprintf(text, "Level: %d", level_num);
                 DrawText(text, 10, 10, 30, RAYWHITE);
@@ -625,7 +644,7 @@ int main()
                 if (Button(main_menu_btn, "Main Menu", 30, GRAY, BLUE, DARKBLUE))
                 {
                     ball_velocity = {0, 0};
-                    level_num = 1;
+                    level_num = 0;
                     LoadLevel(level_num);
                     game_stage = 0;
                 }
@@ -636,7 +655,7 @@ int main()
             }
             else if (game_stage == 3) // Completed all levels
             {
-                DrawLevel();
+                DrawLevel(level_num);
 
                 const int btn_count = 2;
                 int btn_index = 0;
@@ -652,7 +671,7 @@ int main()
                 if (Button(main_menu_btn, "Main Menu", 30, GRAY, BLUE, DARKBLUE))
                 {
                     ball_velocity = {0, 0};
-                    level_num = 1;
+                    level_num = 0;
                     LoadLevel(level_num);
                     game_stage = 0;
                 }
@@ -663,14 +682,14 @@ int main()
             }
             else if (game_stage == 4) // Level selection
             {
-                DrawLevel();
+                DrawLevel(level_num);
 
                 const Color btn_color = {95, 95, 95, 255};
                 const int levels_per_page = 15;
-                const int pages_count = (int)ceil((float)levels_count / levels_per_page);
+                const int pages_count = (int)ceil((float)levels.count / levels_per_page);
                 int levels_last_page = levels_per_page;
-                if (levels_count % levels_per_page != 0)
-                    levels_last_page = levels_count % levels_per_page;
+                if (levels.count % levels_per_page != 0)
+                    levels_last_page = levels.count % levels_per_page;
 
                 DrawRectangle(screenWidth / 2 - 275, screenHeight / 2 - 240, 550, 450, DARKGRAY);
                 if (Button({(float)screenWidth / 2 + 215, (float)screenHeight / 2 - 230, 50, 30}, "x", 30, GRAY, BLUE, DARKBLUE))
@@ -691,7 +710,7 @@ int main()
                     }
                     else if (Button({(float)screenWidth / 2 - 235 + (i % 5 * 95), (float)screenHeight / 2 - 80 + (i / 5 * 95), 90, 90}, text, 30, GRAY, BLUE, DARKBLUE))
                     {
-                        level_num = lvl_num;
+                        level_num = lvl_num - 1;
                         LoadLevel(level_num);
                         game_stage = 1;
                     }
@@ -722,8 +741,9 @@ int main()
     SavePlayerData();
 
     FreeLevel();
-    FreeGrid(level.grid, level.grid_width);
+    FreeLevels(levels.all, levels.count, levels.grid_width);
     ball.Delete();
+    hole.Delete();
     CloseWindow();
     return 0;
 }
