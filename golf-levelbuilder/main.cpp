@@ -41,11 +41,8 @@ using namespace std;
 #define GUI_WINDOW_FILE_DIALOG_IMPLEMENTATION
 #include "gui_window_file_dialog.h"
 
-#define HELPERS_IMPLEMENTATION
-#include "Helpers.h"
-#undef HELPERS_IMPLEMENTATION
-#include "Sprite.h"
-#include "Shapes.h"
+#define BETTER_RAYLIB_IMPLEMENTATION
+#include "better_raylib.h"
 
 struct Level {
     Vector2 ball_position;

@@ -1,8 +1,5 @@
 #include <raylib.h>
 #include <raymath.h>
-#include "Sprite.h"
-#include "Helpers.h"
-#include "Shapes.h"
 #include <iostream>
 #include <fstream>
 #include <vector>
@@ -10,6 +7,9 @@
 #include <iomanip>
 #include <cstring>
 #include <cstdint>
+
+#define BETTER_RAYLIB_IMPLEMENTATION
+#include "better_raylib.h"
 
 using namespace std;
 
@@ -66,30 +66,7 @@ int shots_left = 0;
 
 int level_num = 0;
 uint8_t highest_level = 0;
-const std::string levels_hash = "8f1eaa224679338e0bb329d09ca8bd4037c26c5638aad4490db6b903a79f4896";
-                                            /*{"a7bbf0cb64e0e768dd37ce423e1d54348f06d5081295c8d5ed4526ce1b8ae309",
-                                               "0e4dbca2921c7149816502c993a9d49d4973206b7266a6c4cae8512014035c6a",
-                                               "95608a2fa227361dcea10bffc0817ffece385ccf1bfe968822e56706b6509235",
-                                               "f197625df2ba1d8fe0662e7465702722942175d831a7bd1a0129e1c941796120",
-                                               "8c37116116eb9e100a576b4fb4f5ddbc69868ed2deac7f212a34cc5154bc8dfb",
-                                               "1a374054a84211bb57aaf7df0a4048f5804aaf638924b23eabac6bfcfb563cae",
-                                               "a277054d348ceaa660b03dd77742495528f0bac23c0a0c147d0c74d6a6fa53c0",
-                                               "744e22a6eb803c16e3987eb9381fffb0a9f372031197ee2159811b4d0c250e11",
-                                               "937eb651e51a1270ee0465310a63a11ba059a2e19acb65cd9bf90ff1d1644bac",
-                                               "684b6b42f9b14143fca3cf32a644cd086ca6b7558e84773dcd23d2c7b4e9aeda",
-                                               "6c593044ca41307bae33c19cff483fbe8224a20b2585c2e8b2e5ee3e0e488a75",
-                                               "908113cf8a470857e21e6555b4ea49300b7362b7e2be7aeafc27211371b548ef",
-                                               "6bda528d604c870bef609630cbba3aee2a737c450fd87244f5f36cf5c730a338",
-                                               "75fbde4807c06352307b977d1a6f526ef6ae649559ff3f7a4a898fb90a51c701",
-                                               "9c4a38a9ee259574cea980f9710f2231416737a21d755f3dcc6939f5aa424dbe",
-                                               "380d7e14f4c042ac115e781dbfbfe72107fe05ed5411064313cda6bf14b0f4b1",
-                                               "f2bc3b76d115006b80f5d2faea3eff0989a3a553a621b06c8d168d431a90aaff",
-                                               "714e7804537a4f2a7c2c423b190fca4055de61aaa6fb772c3eeeb954fb149e90",
-                                               "d1c622d3af2d0e45bd3142fd8a63435db833ef863d9df4f97d7ad5eee21ee5cd",
-                                               "bc931d518ad27d498af1bd6f40c9b2056f0327b5954be40d2baa8d466111edd7",
-                                               "9b432acb77ea5a64ea61152b6e40d0ea6b6521ba74933b2669d5757d0c13ccd0",
-                                               "2fd6c58451a6f5dcae640bd6714eeb4fae099983d3b1a175be8be6c42ff4188b",
-                                               "505c368f2ddd10ca60d105e9389dcbd4a5f3d7caeb5b5c3de21715226c3ff8b1"};*/
+const std::string levels_hash = "6f62bd6174767352643662a98068095a0ac7d6698e5d89cbdc239f74c6ae3b7a";
 int lvlslc_page = 0;
 int game_stage = 0; // 0 = Main Menu, 1 = Playing, 2 = Pause menu; 3 = All Levels Completed; 4 = Level Selection
 

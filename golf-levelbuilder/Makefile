@@ -28,7 +28,7 @@ PROJECT_NAME       ?= SpriteTemplate
 RAYLIB_VERSION     ?= 5.0.0
 RAYLIB_PATH        ?= C:/raylib/raylib
 
-INCLUDE             = -I../../lib
+INCLUDE             = 
 COMPILE_ITEMS       = *.cpp
 
 # Define compiler path on Windows
