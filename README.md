@@ -9,7 +9,7 @@ This project was made using my library for raylib, go check it out [here](https:
 To run the level editor you will need the [golf-levelbuilder-windows.exe](https://github.com/anton2026gamca/Golf/blob/main/golf-levelbuilder/golf-levelbuilder-windows.exe) (or [golf-levelbuilder-linux](https://github.com/anton2026gamca/Golf/blob/main/golf-levelbuilder/golf-levelbuilder-linux)) file and the [resources](https://github.com/anton2026gamca/Golf/tree/main/golf-levelbuilder/resources) folder.<br>
 
 ### How to make your own levels:<br>
-  - #### 1. Run the [golf-levelbuilder-windows.exe](https://github.com/anton2026gamca/Golf/blob/main/golf-levelbuilder/golf-levelbuilder-windows.exe) (or [golf-levelbuilder-linux](https://github.com/anton2026gamca/Golf/blob/main/golf-levelbuilder/golf-levelbuilder-linux))
+  #### 1. Run the [golf-levelbuilder-windows.exe](https://github.com/anton2026gamca/Golf/blob/main/golf-levelbuilder/golf-levelbuilder-windows.exe) (or [golf-levelbuilder-linux](https://github.com/anton2026gamca/Golf/blob/main/golf-levelbuilder/golf-levelbuilder-linux))
   #### 2. Load the `l.dat` file in the resources folder od the game (To create a new file just create a blank text document, name it `l.dat` and load it)
   ![Screenshot 2025-01-12 210941](https://github.com/user-attachments/assets/d98c7440-b980-4d7e-b93c-322a02af66e7)
   #### 3. Add your levels
