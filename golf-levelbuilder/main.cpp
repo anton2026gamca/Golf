@@ -1,19 +1,5 @@
-#include <iostream>
-#include <fstream>
-
-#include <vector>
-#include <sstream>
-#include <iomanip>
-#include <cstring>
-#include <cstdint>
-
-#include "Sprite.h"
-#include "Shapes.h"
-#include "Helpers.h"
-#include "raymath.h"
 #include "raylib.h"
-
-using namespace std;
+#include "raymath.h"
 
 // Define screen width and height
 #define SCREEN_WIDTH 1296
@@ -37,12 +23,29 @@ int windowScale = 2;
     GetScreenHeight() * VIRTUAL_WIDTH / SCREEN_WIDTH \
 }
 
+#include <iostream>
+#include <fstream>
+
+#include <vector>
+#include <sstream>
+#include <iomanip>
+#include <cstring>
+#include <cstdint>
+
+using namespace std;
+
 #define RAYGUI_IMPLEMENTATION
 #include "raygui.h"
 
 #undef RAYGUI_IMPLEMENTATION            // Avoid including raygui implementation again
 #define GUI_WINDOW_FILE_DIALOG_IMPLEMENTATION
 #include "gui_window_file_dialog.h"
+
+#define HELPERS_IMPLEMENTATION
+#include "Helpers.h"
+#undef HELPERS_IMPLEMENTATION
+#include "Sprite.h"
+#include "Shapes.h"
 
 struct Level {
     Vector2 ball_position;
@@ -342,6 +345,23 @@ void AddLevel(Levels *levels)
     levels->count = new_levels.count;
 }
 
+void RemoveLevel(Levels *levels, int level_num)
+{
+    int count = levels->count - 1;
+    Level *new_levels = new Level[count];
+    for (int i = 0; i < levels->count; i++)
+    {
+        if (i < level_num)
+            new_levels[i] = levels->all[i];
+        else if (i > level_num)
+            new_levels[i - 1] = levels->all[i];
+    }
+
+    delete[] levels->all;
+    levels->all = new_levels;
+    levels->count = count;
+}
+
 int main()
 {
     // Create Window
@@ -369,9 +389,9 @@ int main()
     Rectangle save_rect = {5, 27, 59, 20};
     Rectangle scrollPanelRect = {loadfile_rect.width + 10, 5, (float)GetScreenWidth() - (loadfile_rect.width + 15), (float)GetScreenHeight() - 8};
     GuiWindowFileDialogState fileDialogState = InitGuiWindowFileDialog(GetWorkingDirectory(), 440, 310, "Open File");
-    char filename[512] = "level.dat";
-    char *fileload_errmsg = { 0 };
-    LoadLevels(filename, &levels);
+    char filename[512] = "";
+    char *fileload_errmsg = "";
+    //LoadLevels(filename, &levels);
     int scrollPanelHeight = 0;
     int ls_level_width = 36 * 5;
     int ls_level_height = 20 * 5;
@@ -420,24 +440,7 @@ int main()
             {
                 ClearBackground(GetColor(GuiGetStyle(DEFAULT, BACKGROUND_COLOR)));
 
-                if (fileDialogState.SelectFilePressed)
-                {
-                    if (IsFileExtension(fileDialogState.fileNameText, ".dat"))
-                    {
-                        strcpy(filename, TextFormat("%s" PATH_SEPERATOR "%s", fileDialogState.dirPathText, fileDialogState.fileNameText));
-                        fileload_errmsg = { 0 };
-                        LoadLevels(filename, &levels);
-                    }
-                    else
-                    {
-                        fileload_errmsg = (char*)"Please select a .dat file";
-                    }
-
-                    fileDialogState.SelectFilePressed = false;
-                }
-
-                if (fileDialogState.windowActive)
-                    GuiLock();
+                // Left panel buttons
                 if (GuiButton(loadfile_rect, GuiIconText(ICON_FILE_OPEN, "Load")))
                 {
                     fileDialogState.windowActive = true;
@@ -449,25 +452,49 @@ int main()
                     Save(filename, &levels);
                 }
 
-                scrollPanelHeight = ceil((levels.count + 3) / 3) * (ls_level_height + 6) + 3;
-                GuiScrollPanel(scrollPanelRect, filename, {loadfile_rect.width + 10, 5, scrollPanelRect.width - 15, (float)max(scrollPanelHeight, (int)scrollPanelRect.height - 27)}, &scrollPanelScroll, &scrollPanelView);
-                BeginScissorMode(scrollPanelView.x + 1, scrollPanelView.y + 1, scrollPanelView.width - 2, scrollPanelView.height - 2);
+                // File dialog
+                if (fileDialogState.SelectFilePressed)
                 {
+                    if (IsFileExtension(fileDialogState.fileNameText, ".dat"))
+                    {
+                        strcpy(filename, TextFormat("%s" PATH_SEPERATOR "%s", fileDialogState.dirPathText, fileDialogState.fileNameText));
+                        fileload_errmsg = "";
+                        LoadLevels(filename, &levels);
+                    }
+                    else
+                    {
+                        fileload_errmsg = (char*)"Please select a .dat file";
+                        FreeLevels(levels.all, levels.count, levels.grid_width);
+                        levels.count = 0;
+                        levels.grid_width = 0;
+                        levels.grid_height = 0;
+                        levels.grid_size = 0;
+                        strcpy(filename, "");
+                    }
+
+                    fileDialogState.SelectFilePressed = false;
+                }
+                if (fileDialogState.windowActive)
+                    GuiLock();
+
+                // Levels + scroll panel
+                bool sliderDragging = guiControlExclusiveMode;
+                int contentHeight = ceil((levels.count + 3) / 3) * (ls_level_height + 6) + 3;
+                scrollPanelHeight = max(contentHeight, (int)scrollPanelRect.height - 27);
+                GuiScrollPanel(scrollPanelRect, filename, {loadfile_rect.width + 10, 5, scrollPanelRect.width - 15, (float)scrollPanelHeight}, &scrollPanelScroll, &scrollPanelView);
+                BeginScissorMode(scrollPanelView.x + 1, scrollPanelView.y + 1, scrollPanelView.width - 2, scrollPanelView.height - 2); // Don't draw outside scroll area
+                {
+                    // Draw error when loading file (if any)
                     DrawText(fileload_errmsg, scrollPanelView.x + (scrollPanelView.width - 2) / 2, scrollPanelView.y + (scrollPanelView.height - 2) / 2 - 10, 20, 0.5, RED);
 
+                    bool no_add = false;
                     for (int i = 0; i < levels.count; i++)
                     {
                         Rectangle lvl_rect = {scrollPanelView.x + scrollPanelScroll.x + 4 + (int)floor(i % ls_levels_per_line) * (ls_level_width + 6), scrollPanelView.y + scrollPanelScroll.y + 4 + (int)floor(i / ls_levels_per_line) * (ls_level_height + 6), (float)ls_level_width, (float)ls_level_height};
+                        bool is_hovered = !guiLocked && CheckCollisionPointRec(GetMousePosition(), lvl_rect) && CheckCollisionPointRec(GetMousePosition(), scrollPanelView);
+
+                        // Draw level
                         DrawRectangle(lvl_rect.x, lvl_rect.y, lvl_rect.width, lvl_rect.height, DARKGREEN);
-                        Color outline_color = GetColor(GuiGetStyle(DEFAULT, BORDER_COLOR_NORMAL));
-                        if (!guiLocked && CheckCollisionPointRec(GetMousePosition(), lvl_rect) && CheckCollisionPointRec(GetMousePosition(), scrollPanelView))
-                        {
-                            if (IsMouseButtonDown(0))
-                                outline_color = GetColor(GuiGetStyle(DEFAULT, BORDER_COLOR_PRESSED));
-                            else
-                                outline_color = GetColor(GuiGetStyle(DEFAULT, BORDER_COLOR_FOCUSED));
-                        }
-                        DrawRectangleLinesEx({lvl_rect.x - 2, lvl_rect.y -2, lvl_rect.width + 4, lvl_rect.height + 4}, 2, outline_color);
                         int grid_size = lvl_rect.width / levels.grid_width;
                         for (int y = 0; y < levels.grid_height; y++)
                         {
@@ -484,16 +511,81 @@ int main()
                         Vector2 hole_pos = {lvl_rect.x + (levels.all[i].hole_position.x / (levels.grid_width * levels.grid_size)) * lvl_rect.width, lvl_rect.y + (levels.all[i].hole_position.y / (levels.grid_height * levels.grid_size)) * lvl_rect.height};
                         DrawCircle(hole_pos.x, hole_pos.y, ceil(grid_size / 2), BLACK);
 
-                        if (!guiLocked && IsMouseButtonReleased(0) && CheckCollisionPointRec(GetMousePosition(), lvl_rect) && CheckCollisionPointRec(GetMousePosition(), scrollPanelView))
+                        // Draw buttons
+                        int size = 13;
+                        Rectangle dlt_btn = {lvl_rect.x + lvl_rect.width - size - 2, lvl_rect.y + 2, (float)size, (float)size};
+                        int width = size * 2 + 15;
+                        Rectangle mv_rect = {dlt_btn.x - width - 2, dlt_btn.y, (float)width, (float)size};
+                        bool hover_buttons = CheckCollisionPointRec(GetMousePosition(), mv_rect) || CheckCollisionPointRec(GetMousePosition(), dlt_btn);
+
+                        if (is_hovered && !sliderDragging)
                         {
-                            stage = 1;
-                            current_level = i;
-                            ball.position = levels.all[i].ball_position;
-                            hole.position = levels.all[i].hole_position;
+                            if (Button(dlt_btn, "x", 10, {165, 50, 50, 255}, RED, RED))
+                            {
+                                RemoveLevel(&levels, i);
+                                no_add = true;
+                            }
+                            if (CheckCollisionPointRec(GetMousePosition(), dlt_btn))
+                                DrawRectangleLinesEx(dlt_btn, 2, {130, 0, 0, 255});
+                            else
+                                DrawRectangleLinesEx(dlt_btn, 2, {110, 50, 50, 255});
+                            DrawRectangle(mv_rect.x, mv_rect.y, mv_rect.width, mv_rect.height, GetColor(GuiGetStyle(DEFAULT, BACKGROUND_COLOR)));
+                            if (GuiButton({mv_rect.x, mv_rect.y, 13, 13}, "+") && i < levels.count - 1)
+                            {
+                                Vector2 ball = levels.all[i].ball_position;
+                                Vector2 hole = levels.all[i].hole_position;
+                                int shots = levels.all[i].shots;
+                                uint8_t **grid = levels.all[i].grid;
+
+                                levels.all[i].ball_position = levels.all[i + 1].ball_position;
+                                levels.all[i].hole_position = levels.all[i + 1].hole_position;
+                                levels.all[i].shots = levels.all[i + 1].shots;
+                                levels.all[i].grid = levels.all[i + 1].grid;
+
+                                levels.all[i + 1].ball_position = ball;
+                                levels.all[i + 1].hole_position = hole;
+                                levels.all[i + 1].shots = shots;
+                                levels.all[i + 1].grid = grid;
+                            }
+                            if (GuiButton({mv_rect.x + mv_rect.width - 13, mv_rect.y, 13, 13}, "-") && i > 0)
+                            {
+                                Vector2 ball = levels.all[i].ball_position;
+                                Vector2 hole = levels.all[i].hole_position;
+                                int shots = levels.all[i].shots;
+                                uint8_t **grid = levels.all[i].grid;
+
+                                levels.all[i].ball_position = levels.all[i - 1].ball_position;
+                                levels.all[i].hole_position = levels.all[i - 1].hole_position;
+                                levels.all[i].shots = levels.all[i - 1].shots;
+                                levels.all[i].grid = levels.all[i - 1].grid;
+
+                                levels.all[i - 1].ball_position = ball;
+                                levels.all[i - 1].hole_position = hole;
+                                levels.all[i - 1].shots = shots;
+                                levels.all[i - 1].grid = grid;
+                            }
+                            char text[25];
+                            sprintf(text, "%d", i + 1);
+                            DrawText(text, mv_rect.x + mv_rect.width / 2, mv_rect.y + 2, 10, 0.5, GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL)));
+                            
+                            if (!hover_buttons && IsMouseButtonReleased(0) && !CheckCollisionPointRec(GetMousePosition(), mv_rect))
+                            {
+                                stage = 1;
+                                current_level = i;
+                                ball.position = levels.all[i].ball_position;
+                                hole.position = levels.all[i].hole_position;
+                            }
                         }
+                        
+                        // Draw outline around level
+                        Color outline_color = is_hovered && !sliderDragging ? ((IsMouseButtonDown(0) && !hover_buttons) ? GetColor(GuiGetStyle(DEFAULT, BORDER_COLOR_PRESSED))
+                                                                                                                        : GetColor(GuiGetStyle(DEFAULT, BORDER_COLOR_FOCUSED)))
+                                                                            : GetColor(GuiGetStyle(DEFAULT, BORDER_COLOR_NORMAL));
+                        DrawRectangleLinesEx({lvl_rect.x - 2, lvl_rect.y -2, lvl_rect.width + 4, lvl_rect.height + 4}, 2, outline_color);
                     }
-                    Rectangle rect = {scrollPanelView.x + scrollPanelScroll.x + 2 + (int)floor(levels.count % ls_levels_per_line) * (ls_level_width + 6), scrollPanelView.y + scrollPanelScroll.y + 2 + (int)floor(levels.count / ls_levels_per_line) * (ls_level_height + 6), (float)ls_level_width + 4, (float)ls_level_height + 4};
-                    if (GuiButton(rect, "+"))
+                    // Draw add level button
+                    Rectangle add_rect = {scrollPanelView.x + scrollPanelScroll.x + 2 + (int)floor(levels.count % ls_levels_per_line) * (ls_level_width + 6), scrollPanelView.y + scrollPanelScroll.y + 2 + (int)floor(levels.count / ls_levels_per_line) * (ls_level_height + 6), (float)ls_level_width + 4, (float)ls_level_height + 4};
+                    if (filename[0] != '\0' && GuiButton(add_rect, "+") && !no_add && !sliderDragging)
                     {
                         AddLevel(&levels);
                     }
