@@ -3,7 +3,7 @@
 To run the game download it or play the web build on [itch.io](https://anton2026.itch.io/golf).
 
 This project was made using my library for raylib, go check it out [here](https://github.com/anton2026gamca/BetterRaylib).
-I originally made this project as a present (sercret santa) for my classmate. 
+I originally made this project as a present (secret santa) for my classmate. 
 
 ## Golf Level Editor (Raylib required)
 
