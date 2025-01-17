@@ -8,7 +8,7 @@ I originally made this project as a present (sercret santa) for my classmate.
 ## Golf Level Editor (Raylib required)
 
 To run the level editor you will need the [golf-levelbuilder-windows.exe](https://github.com/anton2026gamca/Golf/blob/main/golf-levelbuilder/golf-levelbuilder-windows.exe) (or [golf-levelbuilder-linux](https://github.com/anton2026gamca/Golf/blob/main/golf-levelbuilder/golf-levelbuilder-linux)) file and the [resources](https://github.com/anton2026gamca/Golf/tree/main/golf-levelbuilder/resources) folder.<br>
-Also dowload the [golf](https://github.com/anton2026gamca/Golf/blob/main/golf) folder because you'l need to recompile
+Also dowload the [golf](https://github.com/anton2026gamca/Golf/blob/main/golf) folder because you'll need to recompile
 
 ### How to make your own levels:<br>
   1. Run the [golf-levelbuilder-windows.exe](https://github.com/anton2026gamca/Golf/blob/main/golf-levelbuilder/golf-levelbuilder-windows.exe) (or [golf-levelbuilder-linux](https://github.com/anton2026gamca/Golf/blob/main/golf-levelbuilder/golf-levelbuilder-linux))
