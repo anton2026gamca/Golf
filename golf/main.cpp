@@ -335,7 +335,7 @@ int LoadLevel(int level_num)
     return 0;
 }
 
-void DrawLevel(int level_num)
+void DrawLevel()
 {
     hole.Draw();
     ball.Draw();
@@ -453,7 +453,7 @@ int main()
 
             if (game_stage == 0) // Main Menu
             {
-                DrawLevel(level_num);
+                DrawLevel();
 
                 DrawText("GOLF!", screenWidth / 2, 100, 60, 0.5, RAYWHITE);
 
@@ -558,8 +558,8 @@ int main()
 
                 if (CheckCollisionCircles(ball.position, ball.GetWidth() / 2, hole.position, hole.GetWidth() / 3))
                 {
-                    if (level_num > highest_level)
-                        highest_level = level_num;
+                    if (level_num + 1 > highest_level)
+                        highest_level = level_num + 1;
                     level_num++;
                     if (level_num >= levels.count)
                     {
@@ -573,10 +573,10 @@ int main()
                     LoadLevel(level_num);
                 }
 
-                DrawLevel(level_num);
+                DrawLevel();
 
                 char text[25];
-                sprintf(text, "Level: %d", level_num);
+                sprintf(text, "Level: %d", level_num + 1);
                 DrawText(text, 10, 10, 30, RAYWHITE);
 
                 if (Button(pause_btn_rect, "Pause", 30, DARKGRAY, BLUE, RED))
@@ -589,7 +589,7 @@ int main()
             }
             else if (game_stage == 2) // Pause Menu
             {
-                DrawLevel(level_num);
+                DrawLevel();
                 char text[25];
                 sprintf(text, "Level: %d", level_num);
                 DrawText(text, 10, 10, 30, RAYWHITE);
@@ -632,7 +632,7 @@ int main()
             }
             else if (game_stage == 3) // Completed all levels
             {
-                DrawLevel(level_num);
+                DrawLevel();
 
                 const int btn_count = 2;
                 int btn_index = 0;
@@ -659,7 +659,7 @@ int main()
             }
             else if (game_stage == 4) // Level selection
             {
-                DrawLevel(level_num);
+                DrawLevel();
 
                 const Color btn_color = {95, 95, 95, 255};
                 const int levels_per_page = 15;
@@ -678,16 +678,16 @@ int main()
                 const int levels_this_page = (lvlslc_page == pages_count - 1) ? levels_last_page : levels_per_page;
                 for (int i = 0; i < levels_this_page; i++)
                 {
-                    int lvl_num = lvlslc_page * levels_per_page + i + 1;
+                    int lvl_num = lvlslc_page * levels_per_page + i;
                     char text[3];
-                    sprintf(text, "%d", lvl_num);
-                    if (lvl_num > highest_level + 1)
+                    sprintf(text, "%d", lvl_num + 1);
+                    if (lvl_num > highest_level)
                     {
                         Button({(float)screenWidth / 2 - 235 + (i % 5 * 95), (float)screenHeight / 2 - 80 + (i / 5 * 95), 90, 90}, text, 30, btn_color, btn_color, btn_color);
                     }
                     else if (Button({(float)screenWidth / 2 - 235 + (i % 5 * 95), (float)screenHeight / 2 - 80 + (i / 5 * 95), 90, 90}, text, 30, GRAY, BLUE, DARKBLUE))
                     {
-                        level_num = lvl_num - 1;
+                        level_num = lvl_num;
                         LoadLevel(level_num);
                         game_stage = 1;
                     }

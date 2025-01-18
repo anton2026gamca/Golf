@@ -24,12 +24,12 @@
 .PHONY: all clean
 
 # Define required raylib variables
-PROJECT_NAME       ?= SpriteTemplate
+PROJECT_NAME       ?= untitled
 RAYLIB_VERSION     ?= 5.0.0
 RAYLIB_PATH        ?= C:/raylib/raylib
 
-INCLUDE             = 
-COMPILE_ITEMS       = *.cpp
+INCLUDE             = -I../../lib
+COMPILE_ITEMS       = main.cpp
 
 # Define compiler path on Windows
 COMPILER_PATH      ?= C:/raylib/w64devkit/bin
@@ -204,7 +204,9 @@ ifeq ($(BUILD_MODE),DEBUG)
 else
     CFLAGS += -s -O1
     # No console spawning on run
-    CFLAGS += -Wl,--subsystem,windows
+    ifeq ($(PLATFORM_OS),WINDOWS)
+        CFLAGS += -Wl,--subsystem,windows
+    endif
 endif
 
 # Additional flags for compiler (if desired)
@@ -243,7 +245,7 @@ ifeq ($(PLATFORM),PLATFORM_WEB)
     # --profiling                # include information for code profiling
     # --memory-init-file 0       # to avoid an external memory initialization code file (.mem)
     # --preload-file resources   # specify a resources folder for data compilation
-    CFLAGS += -Os -s USE_GLFW=3 -s TOTAL_MEMORY=16777216 --preload-file resources
+    CFLAGS += -Os -s USE_GLFW=3 -s ASYNCIFY -s TOTAL_MEMORY=16777216 --preload-file resources
     ifeq ($(BUILD_MODE), DEBUG)
         CFLAGS += -s ASSERTIONS=1 --profiling
     endif
@@ -362,7 +364,7 @@ ifeq ($(PLATFORM),PLATFORM_RPI)
 endif
 ifeq ($(PLATFORM),PLATFORM_WEB)
     # Libraries for web (HTML5) compiling
-    LDLIBS = $(RAYLIB_RELEASE_PATH)/libraylib.bc
+    LDLIBS = $(RAYLIB_RELEASE_PATH)/web/libraylib.a
 endif
 
 # Define a recursive wildcard function
