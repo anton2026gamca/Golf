@@ -218,6 +218,18 @@ std::string toHexString(const std::vector<uint8_t>& digest) {
     return oss.str();
 }
 
+bool IsFileEmpty(const std::string& fileName) {
+    std::ifstream file(fileName, std::ios::binary | std::ios::ate);
+    if (file.is_open()) {
+        std::streampos fileSize = file.tellg();
+        file.close();
+        return fileSize == 0;
+    } else {
+        std::cerr << "Unable to open file: " << fileName << std::endl;
+        return false;
+    }
+}
+
 uint8_t **CreateGrid(int width, int height) {
     uint8_t **grid = new uint8_t*[width];
     for (int i = 0; i < width; ++i) {
@@ -285,30 +297,42 @@ void Save(char *filename, Levels *levels)
 
 void Load(char *filename, Levels *levels)
 {
-    ifstream ifstream(filename, ios::in | ios::binary);
-    if (!ifstream.is_open())
-        return;
-    ifstream.read((char*) &levels->grid_size, sizeof(uint8_t));
-    ifstream.read((char*) &levels->grid_width, sizeof(uint8_t));
-    ifstream.read((char*) &levels->grid_height, sizeof(uint8_t));
-    if (levels->count > 0)
-        FreeLevels(levels->all, levels->count, levels->grid_width);
-    ifstream.read((char*) &levels->count, sizeof(uint8_t));
-    levels->all = CreateLevels(levels->count, levels->grid_width, levels->grid_height);
-    for (int i = 0; i < levels->count; i++)
+    if (IsFileEmpty(filename))
     {
-        ifstream.read((char*) &levels->all[i].ball_position, sizeof(Vector2));
-        ifstream.read((char*) &levels->all[i].hole_position, sizeof(Vector2));
-        ifstream.read((char*) &levels->all[i].shots, sizeof(uint8_t));
-        for (int y = 0; y < levels->grid_height; y++)
+        FreeLevels(levels->all, levels->count, levels->grid_width);
+        levels->grid_width = 36;
+        levels->grid_height = 20;
+        levels->grid_size = 36;
+        levels->count = 0;
+        levels->all = new Level[0];
+    }
+    else
+    {
+        ifstream ifstream(filename, ios::in | ios::binary);
+        if (!ifstream.is_open())
+            return;
+        ifstream.read((char*) &levels->grid_size, sizeof(uint8_t));
+        ifstream.read((char*) &levels->grid_width, sizeof(uint8_t));
+        ifstream.read((char*) &levels->grid_height, sizeof(uint8_t));
+        if (levels->count > 0)
+            FreeLevels(levels->all, levels->count, levels->grid_width);
+        ifstream.read((char*) &levels->count, sizeof(uint8_t));
+        levels->all = CreateLevels(levels->count, levels->grid_width, levels->grid_height);
+        for (int i = 0; i < levels->count; i++)
         {
-            for (int x = 0; x < levels->grid_width; x++)
+            ifstream.read((char*) &levels->all[i].ball_position, sizeof(Vector2));
+            ifstream.read((char*) &levels->all[i].hole_position, sizeof(Vector2));
+            ifstream.read((char*) &levels->all[i].shots, sizeof(uint8_t));
+            for (int y = 0; y < levels->grid_height; y++)
             {
-                ifstream.read((char*) &levels->all[i].grid[x][y], sizeof(uint8_t));
+                for (int x = 0; x < levels->grid_width; x++)
+                {
+                    ifstream.read((char*) &levels->all[i].grid[x][y], sizeof(uint8_t));
+                }
             }
         }
+        ifstream.close();
     }
-    ifstream.close();
 }
 
 void LoadLevels(char *filename, Levels *levels)
@@ -457,6 +481,7 @@ int main()
                         strcpy(filename, TextFormat("%s" PATH_SEPERATOR "%s", fileDialogState.dirPathText, fileDialogState.fileNameText));
                         fileload_errmsg = "";
                         LoadLevels(filename, &levels);
+                        fileDialogState = InitGuiWindowFileDialog(GetWorkingDirectory(), 440, 310, "Open File"); // Reset window
                     }
                     else
                     {
